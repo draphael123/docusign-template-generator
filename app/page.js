@@ -1485,34 +1485,29 @@ const DocumentPreview = React.forwardRef(({
       </h2>
 
       {/* A4 Paper Simulation */}
-      <div className="bg-white text-gray-900 rounded-lg shadow-2xl" style={{ overflow: 'hidden' }}>
+      <div className="bg-white text-gray-900 rounded-lg shadow-2xl" style={{ overflow: 'visible' }}>
         <div 
           ref={ref}
           className={`${pageOrientation === 'landscape' ? 'min-h-[21cm]' : 'min-h-[29.7cm]'} relative`}
           style={{
             fontFamily: fontFamily || "'Libre Baskerville', serif",
-            paddingTop: `${pageMargins.top}px`,
+            paddingTop: (letterhead || customLetterhead) ? '0' : `${pageMargins.top}px`,
             paddingRight: `${pageMargins.right}px`,
             paddingBottom: `${pageMargins.bottom}px`,
             paddingLeft: `${pageMargins.left}px`,
-            marginTop: '0'
+            marginTop: '0',
+            overflow: 'visible'
           }}
         >
-          {/* Header */}
-          {headerText && (
-            <div className="text-center text-xs text-gray-500 border-b border-gray-200 pb-1 mb-4" style={{ paddingTop: `${pageMargins.top - 20}px` }}>
-              {headerText}
-            </div>
-          )}
-
-          {/* Letterhead Header */}
+          {/* Letterhead Header - At the very top */}
           {(letterhead || customLetterhead) && (
             <div 
               className="mb-0"
               style={{
-                marginTop: headerText ? '0' : `${pageMargins.top}px`,
+                marginTop: '0',
                 marginLeft: `-${pageMargins.left}px`,
                 marginRight: `-${pageMargins.right}px`,
+                marginBottom: '0',
                 width: `calc(100% + ${pageMargins.left + pageMargins.right}px)`,
                 position: 'relative',
                 zIndex: 1
