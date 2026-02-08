@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Document Generator",
-  description: "Create professional documents with ease",
+  title: "DocuSign Template Generator",
+  description: "Create professional letterhead documents for DocuSign",
 };
 
 export default function RootLayout({ children }) {

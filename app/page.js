@@ -229,10 +229,10 @@ export default function DocumentGenerator() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center font-bold text-slate-900">
-              F
+              D
             </div>
             <div>
-              <h1 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Fountain Document Generator</h1>
+              <h1 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>DocuSign Template Generator</h1>
               <p className={`text-xs ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Create professional letterhead documents</p>
             </div>
           </div>
