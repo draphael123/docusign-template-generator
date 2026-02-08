@@ -115,10 +115,10 @@ export default function DocumentGenerator() {
   const [customLetterhead, setCustomLetterhead] = useState(null);
   const [letterheadImages, setLetterheadImages] = useState({});
   
-  // Load letterhead images from .docx files
+  // Load letterhead content from .docx files
   useEffect(() => {
-    const loadLetterheadImages = async () => {
-      const images = {};
+    const loadLetterheadContent = async () => {
+      const content = {};
       for (const [key, config] of Object.entries(LETTERHEADS)) {
         if (config.file) {
           try {
@@ -127,6 +127,7 @@ export default function DocumentGenerator() {
               const arrayBuffer = await response.arrayBuffer();
               try {
                 const mammoth = await import('mammoth');
+                // Convert to HTML with images
                 const result = await mammoth.convertToHtml({ arrayBuffer }, {
                   convertImage: mammoth.images.imgElement((image) => {
                     return image.read('base64').then((imageBuffer) => {
@@ -136,35 +137,57 @@ export default function DocumentGenerator() {
                     });
                   })
                 });
-                // Extract images from HTML
+                
+                // Parse the HTML to extract images and content
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(result.value, 'text/html');
                 const imgElements = doc.querySelectorAll('img');
+                
                 if (imgElements.length > 0) {
-                  images[key] = Array.from(imgElements).map(img => img.src);
+                  // Store images
+                  content[key] = {
+                    type: 'images',
+                    data: Array.from(imgElements).map(img => img.src)
+                  };
+                } else {
+                  // If no images, store the HTML content to render
+                  const bodyContent = doc.body.innerHTML;
+                  if (bodyContent && bodyContent.trim().length > 0) {
+                    content[key] = {
+                      type: 'html',
+                      data: bodyContent
+                    };
+                  }
                 }
+                
+                console.log(`Loaded letterhead ${key}:`, content[key] ? 'Success' : 'No content found');
               } catch (mammothError) {
-                console.error(`Error extracting images from ${key}:`, mammothError);
+                console.error(`Error processing letterhead ${key}:`, mammothError);
                 // Try to find corresponding image files
                 const imagePath = config.file.replace('.docx', '.png');
                 try {
                   const imgResponse = await fetch(imagePath);
                   if (imgResponse.ok) {
-                    images[key] = [imagePath];
+                    content[key] = {
+                      type: 'images',
+                      data: [imagePath]
+                    };
                   }
                 } catch (imgError) {
                   console.error(`No image file found for ${key}`);
                 }
               }
+            } else {
+              console.error(`Failed to fetch letterhead ${key}: ${response.status}`);
             }
           } catch (error) {
             console.error(`Error loading letterhead ${key}:`, error);
           }
         }
       }
-      setLetterheadImages(images);
+      setLetterheadImages(content);
     };
-    loadLetterheadImages();
+    loadLetterheadContent();
   }, []);
   
   // Recipient
@@ -1392,15 +1415,29 @@ const DocumentPreview = React.forwardRef(({
                   LETTERHEADS[key].file === letterhead.file || 
                   LETTERHEADS[key].name === letterhead.name
                 );
-                const images = letterheadKey ? letterheadImages[letterheadKey] : null;
+                const letterheadContent = letterheadKey ? letterheadImages[letterheadKey] : null;
                 
-                return images && images.length > 0 ? (
-                  <div className="mb-4">
-                    {images.map((imgSrc, idx) => (
-                      <img key={idx} src={imgSrc} alt={`${letterhead.displayName || letterhead.name} Letterhead`} className="max-w-full h-auto mb-2" />
-                    ))}
-                  </div>
-                ) : (
+                if (letterheadContent) {
+                  if (letterheadContent.type === 'images' && letterheadContent.data && letterheadContent.data.length > 0) {
+                    return (
+                      <div className="mb-4">
+                        {letterheadContent.data.map((imgSrc, idx) => (
+                          <img key={idx} src={imgSrc} alt={`${letterhead.displayName || letterhead.name} Letterhead`} className="max-w-full h-auto mb-2" />
+                        ))}
+                      </div>
+                    );
+                  } else if (letterheadContent.type === 'html' && letterheadContent.data) {
+                    return (
+                      <div 
+                        className="mb-4 letterhead-content"
+                        dangerouslySetInnerHTML={{ __html: letterheadContent.data }}
+                      />
+                    );
+                  }
+                }
+                
+                // Fallback to text display
+                return (
                   <div className="flex items-start gap-3 mb-2">
                     <div className="flex-1">
                       <h1 
