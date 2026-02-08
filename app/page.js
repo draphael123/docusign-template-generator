@@ -1282,57 +1282,19 @@ export default function DocumentGenerator() {
               </button>
             </div>
             
-            {/* Export Actions */}
+            {/* Download Action */}
             <div>
-              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Download As:</div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={downloadPDF}
-                  disabled={!allComplete}
-                  className={`flex-1 min-w-[120px] px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                    allComplete
-                      ? 'bg-gradient-to-r from-coral-500 to-orange-500 hover:shadow-lg hover:shadow-coral-500/50 text-white'
-                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  }`}
-                >
-                  📄 Download PDF
-                </button>
-                <button
-                  onClick={downloadWord}
-                  disabled={!allComplete}
-                  className={`flex-1 min-w-[120px] px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                    allComplete
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  }`}
-                >
-                  📝 Download Word
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <button
-                  onClick={downloadHTML}
-                  disabled={!allComplete}
-                  className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
-                    allComplete
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  }`}
-                >
-                  🌐 HTML
-                </button>
-                <button
-                  onClick={downloadText}
-                  disabled={!allComplete}
-                  className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
-                    allComplete
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  }`}
-                >
-                  📄 Text
-                </button>
-              </div>
+              <button
+                onClick={downloadPDF}
+                disabled={!allComplete}
+                className={`w-full px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                  allComplete
+                    ? 'bg-gradient-to-r from-coral-500 to-orange-500 hover:shadow-lg hover:shadow-coral-500/50 text-white'
+                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                📄 Download PDF
+              </button>
             </div>
             
             {/* Primary Actions */}
