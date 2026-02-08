@@ -183,90 +183,113 @@ export default function DocumentGenerator() {
     }, 0);
   };
 
+  // Helper function to load image as base64
+  const loadImageAsBase64 = (url) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
   // Download PDF
   const downloadPDF = async () => {
-    const element = previewRef.current;
-    if (!element) {
-      alert('Preview not ready. Please try again.');
-      return;
-    }
-
     try {
-      const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
-
-      // Clone the element to avoid modifying the original
-      const clone = element.cloneNode(true);
-      clone.style.width = '210mm';
-      clone.style.minHeight = '297mm';
-      clone.style.padding = '48px';
-      clone.style.background = '#ffffff';
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '0';
-      document.body.appendChild(clone);
-
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        imageTimeout: 15000,
-        onclone: (clonedDoc) => {
-          // Ensure images are loaded
-          const images = clonedDoc.getElementsByTagName('img');
-          for (let img of images) {
-            img.crossOrigin = 'anonymous';
-          }
-        }
-      });
-
-      document.body.removeChild(clone);
-
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
-
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      
+      const letterheadData = LETTERHEADS[letterhead];
+      
+      // Try to load and add letterhead image
+      try {
+        const imgData = await loadImageAsBase64(letterheadData.image);
+        // Add letterhead image at top - spanning full width, cropped height
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, 40);
+      } catch (imgError) {
+        // If image fails, add text header
+        console.log('Image load failed, using text header');
+        pdf.setFontSize(24);
+        pdf.setTextColor(0, 128, 128);
+        pdf.text(letterheadData.fullName, 20, 25);
+        pdf.setDrawColor(0, 128, 128);
+        pdf.line(20, 30, pageWidth - 20, 30);
+      }
+      
+      // Reset text color
+      pdf.setTextColor(0, 0, 0);
+      
+      // Date (right aligned)
+      pdf.setFontSize(11);
+      const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      pdf.text(date, pageWidth - 20, 55, { align: 'right' });
+      
+      let yPosition = 70;
+      
+      // Recipient info
+      if (recipientName) {
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(recipientName, 20, yPosition);
+        yPosition += 6;
+        
+        if (recipientTitle) {
+          pdf.setFont(undefined, 'normal');
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(recipientTitle, 20, yPosition);
+          yPosition += 6;
+        }
+        
+        if (recipientAddress) {
+          pdf.setFont(undefined, 'normal');
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(recipientAddress, 20, yPosition);
+          yPosition += 6;
+        }
+        
+        pdf.setTextColor(0, 0, 0);
+        yPosition += 8;
+      }
+      
+      // Subject line
+      if (subjectLine) {
+        pdf.setFont(undefined, 'bold');
+        pdf.text(`Re: ${subjectLine}`, 20, yPosition);
+        pdf.setFont(undefined, 'normal');
+        yPosition += 12;
+      }
+      
+      // Document body
+      pdf.setFontSize(fontSize);
+      pdf.setFont(undefined, 'normal');
+      const previewText = getPreviewText();
+      const lines = pdf.splitTextToSize(previewText, pageWidth - 40);
+      
+      // Check if we need multiple pages
+      const lineHeight = fontSize * 0.5;
+      for (let i = 0; i < lines.length; i++) {
+        if (yPosition > 270) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        pdf.text(lines[i], 20, yPosition);
+        yPosition += lineHeight;
+      }
       
       const fileName = documentType === 'None' ? 'Document' : documentType.replace(/\s+/g, '_');
       pdf.save(`${fileName}.pdf`);
     } catch (error) {
       console.error('PDF generation error:', error);
-      // Fallback: try without images
-      try {
-        const { jsPDF } = await import('jspdf');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        
-        const letterheadData = LETTERHEADS[letterhead];
-        pdf.setFontSize(20);
-        pdf.text(letterheadData.fullName, 20, 20);
-        
-        pdf.setFontSize(12);
-        const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        pdf.text(date, 190, 40, { align: 'right' });
-        
-        if (recipientName) {
-          pdf.text(recipientName, 20, 50);
-        }
-        
-        const previewText = getPreviewText();
-        const lines = pdf.splitTextToSize(previewText, 170);
-        pdf.text(lines, 20, 70);
-        
-        const fileName = documentType === 'None' ? 'Document' : documentType.replace(/\s+/g, '_');
-        pdf.save(`${fileName}.pdf`);
-      } catch (fallbackError) {
-        console.error('Fallback PDF generation error:', fallbackError);
-        alert('PDF generation failed. Please try using the Word export instead.');
-      }
+      alert('PDF generation failed. Please try using the Word export instead.');
     }
   };
 
