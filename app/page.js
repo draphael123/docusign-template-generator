@@ -382,28 +382,20 @@ export default function DocumentGenerator() {
   }, [historyIndex, history, showFullScreen]);
 
   // Helper functions
-  const saveDocument = () => {
-    const doc = {
-      name: documentName || 'Untitled Document',
-      body: documentBody,
-      recipientName,
-      recipientTitle,
-      recipientAddress,
-      subjectLine,
-      signatoryName,
-      signatoryTitle,
-      letterhead,
-      fontSize,
-      lineSpacing,
-      fontFamily,
-      timestamp: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${documentName || 'document'}.json`;
-    link.click();
+  const saveDocument = async (format = null) => {
+    // If format is not specified, show selection dialog
+    if (!format) {
+      const userChoice = window.confirm(
+        'Choose format:\n\nClick OK for PDF\nClick Cancel for DOCX'
+      );
+      format = userChoice ? 'pdf' : 'docx';
+    }
+
+    if (format === 'pdf') {
+      await downloadPDF();
+    } else if (format === 'docx') {
+      downloadWord();
+    }
   };
 
   const duplicateDocument = () => {
@@ -1364,9 +1356,10 @@ export default function DocumentGenerator() {
             {/* Primary Actions */}
             <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-700">
               <button
-                onClick={saveDocument}
-                className={`flex-1 ${darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'} px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-white`}
-                title="Save (Ctrl+S)"
+                onClick={() => saveDocument()}
+                disabled={!allComplete}
+                className={`flex-1 ${darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'} px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-white disabled:opacity-50 disabled:cursor-not-allowed`}
+                title="Save (Ctrl+S) - Choose PDF or DOCX"
               >
                 💾 Save Document
               </button>
