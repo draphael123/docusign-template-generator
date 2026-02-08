@@ -300,6 +300,77 @@ export default function DocumentGenerator() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Document Body - Full Width at Top */}
+        <section className={`rounded-xl p-5 border transition-colors duration-300 mb-8 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className={`text-sm font-medium uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Document Body</h2>
+            <div className="flex items-center gap-2">
+              {/* Import Document Button */}
+              <label
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
+                  darkMode 
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700' 
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Import
+                <input
+                  type="file"
+                  accept=".txt,.docx,.doc"
+                  onChange={handleFileImport}
+                  className="hidden"
+                />
+              </label>
+              {/* Copy Button */}
+              <button
+                onClick={copyToClipboard}
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all ${
+                  copied 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                    : darkMode 
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300'
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          <textarea
+            id="documentBody"
+            value={documentBody}
+            onChange={(e) => setDocumentBody(e.target.value)}
+            className={`w-full h-48 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-teal-500 resize-none transition-colors ${darkMode ? 'bg-slate-800 border border-slate-700 text-slate-200' : 'bg-gray-50 border border-gray-300 text-gray-900'}`}
+            placeholder="Enter your document content here, or click Import to upload a .txt or .docx file..."
+            style={{ fontFamily: FONTS[selectedFont].family }}
+          />
+          {/* Word/Character Count */}
+          <div className={`flex items-center justify-between mt-3 text-xs ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>
+            <div className="flex items-center gap-4">
+              <span>{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
+              <span>{charCount} {charCount === 1 ? 'character' : 'characters'}</span>
+              <span className={darkMode ? 'text-slate-600' : 'text-gray-400'}>({charCountNoSpaces} without spaces)</span>
+            </div>
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           
           {/* Left Column - Controls */}
@@ -498,80 +569,9 @@ export default function DocumentGenerator() {
             </section>
           </div>
 
-          {/* Right Column - Document Body & Preview */}
+          {/* Right Column - Preview */}
           <div className="lg:col-span-3 space-y-6">
             
-            {/* Document Body */}
-            <section className={`rounded-xl p-5 border transition-colors duration-300 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-sm font-medium uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Document Body</h2>
-                <div className="flex items-center gap-2">
-                  {/* Import Document Button */}
-                  <label
-                    className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
-                      darkMode 
-                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700' 
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Import
-                    <input
-                      type="file"
-                      accept=".txt,.docx,.doc"
-                      onChange={handleFileImport}
-                      className="hidden"
-                    />
-                  </label>
-                  {/* Copy Button */}
-                  <button
-                    onClick={copyToClipboard}
-                    className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all ${
-                      copied 
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
-                        : darkMode 
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700' 
-                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300'
-                    }`}
-                  >
-                    {copied ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-              <textarea
-                id="documentBody"
-                value={documentBody}
-                onChange={(e) => setDocumentBody(e.target.value)}
-                className={`w-full h-48 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-teal-500 resize-none transition-colors ${darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-gray-50 border border-gray-300'}`}
-                placeholder="Enter your document content here..."
-                style={{ fontFamily: FONTS[selectedFont].family }}
-              />
-              {/* Word/Character Count */}
-              <div className={`flex items-center justify-between mt-3 text-xs ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>
-                <div className="flex items-center gap-4">
-                  <span>{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
-                  <span>{charCount} {charCount === 1 ? 'character' : 'characters'}</span>
-                  <span className={darkMode ? 'text-slate-600' : 'text-gray-400'}>({charCountNoSpaces} without spaces)</span>
-                </div>
-              </div>
-            </section>
-
             {/* Preview */}
             <section className={`rounded-xl p-5 border transition-colors duration-300 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center justify-between mb-4">
