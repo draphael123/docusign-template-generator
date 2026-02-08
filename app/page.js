@@ -1555,7 +1555,7 @@ const DocumentPreview = React.forwardRef(({
       </h2>
 
       {/* A4 Paper Simulation */}
-      <div className="bg-white text-gray-900 rounded-lg shadow-2xl" style={{ overflow: 'visible' }}>
+      <div className="bg-white text-gray-900 rounded-lg shadow-2xl" style={{ overflow: 'hidden', position: 'relative' }}>
         <div 
           ref={ref}
           className={`${pageOrientation === 'landscape' ? 'min-h-[21cm]' : 'min-h-[29.7cm]'} relative`}
@@ -1566,29 +1566,34 @@ const DocumentPreview = React.forwardRef(({
             paddingBottom: `${pageMargins.bottom}px`,
             paddingLeft: `${pageMargins.left}px`,
             marginTop: '0',
-            overflow: 'visible'
+            position: 'relative'
           }}
         >
-          {/* Letterhead Header - At the very top */}
+          {/* Letterhead - Full page background */}
           {(letterhead || customLetterhead) && (
             <div 
-              className="mb-0"
+              className="absolute inset-0"
               style={{
-                marginTop: '0',
-                marginLeft: `-${pageMargins.left}px`,
-                marginRight: `-${pageMargins.right}px`,
-                marginBottom: '0',
-                width: `calc(100% + ${pageMargins.left + pageMargins.right}px)`,
-                position: 'relative',
-                zIndex: 1
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 0,
+                margin: 0,
+                padding: 0
               }}
             >
               {customLetterhead && customLetterhead.type === 'image' ? (
                 <img 
                   src={customLetterhead.data} 
                   alt="Custom Letterhead" 
-                  className="w-full h-auto"
-                  style={{ display: 'block' }}
+                  className="w-full h-full object-cover"
+                  style={{ 
+                    objectFit: 'cover', 
+                    objectPosition: 'top',
+                    width: '100%',
+                    height: '100%'
+                  }}
                 />
               ) : letterhead && (() => {
                 // Find the letterhead key from the object
@@ -1607,14 +1612,20 @@ const DocumentPreview = React.forwardRef(({
                 if (letterheadContent) {
                   if (letterheadContent.type === 'images' && letterheadContent.data && letterheadContent.data.length > 0) {
                     return (
-                      <div className="w-full">
+                      <div className="w-full h-full">
                         {letterheadContent.data.map((imgSrc, idx) => (
                           <img 
                             key={idx} 
                             src={imgSrc} 
                             alt={`${letterhead.displayName || letterhead.name} Letterhead`} 
-                            className="w-full h-auto"
-                            style={{ display: 'block' }}
+                            className="w-full h-full object-cover"
+                            style={{ 
+                              objectFit: 'cover', 
+                              objectPosition: 'top',
+                              width: '100%',
+                              height: '100%',
+                              display: 'block'
+                            }}
                             onError={(e) => {
                               console.error(`Failed to load letterhead image ${idx} for ${letterheadKey}:`, imgSrc);
                               e.target.style.display = 'none';
@@ -1637,10 +1648,12 @@ const DocumentPreview = React.forwardRef(({
                     
                     return (
                       <div 
-                        className="w-full letterhead-content"
+                        className="w-full h-full letterhead-content"
                         style={{ 
                           background: 'white',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          width: '100%',
+                          height: '100%'
                         }}
                         dangerouslySetInnerHTML={{ __html: cleanedHtml }}
                       />
@@ -1672,13 +1685,17 @@ const DocumentPreview = React.forwardRef(({
             </div>
           )}
 
-          {/* Document Content - Appears in middle section below letterhead */}
+          {/* Document Content - Overlaid on top of letterhead */}
           <div 
             className="relative"
             style={{
-              marginTop: (letterhead || customLetterhead) ? '300px' : '0',
-              paddingTop: (letterhead || customLetterhead) ? '60px' : '0',
-              minHeight: '400px'
+              position: 'relative',
+              zIndex: 10,
+              paddingTop: (letterhead || customLetterhead) ? `${pageMargins.top + 200}px` : `${pageMargins.top}px`,
+              paddingLeft: `${pageMargins.left}px`,
+              paddingRight: `${pageMargins.right}px`,
+              paddingBottom: `${pageMargins.bottom}px`,
+              minHeight: (letterhead || customLetterhead) ? 'calc(100% - 200px)' : 'auto'
             }}
           >
             {/* Recipient */}
@@ -1726,21 +1743,38 @@ const DocumentPreview = React.forwardRef(({
                 )}
               </div>
             )}
-
-            {/* Footer */}
-            {footerText && (
-              <div className="mt-8 pt-4 text-center text-xs text-gray-500 border-t border-gray-200">
-                {footerText}
-              </div>
-            )}
-
-            {/* Page Numbers */}
-            {showPageNumbers && (
-              <div className="mt-8 text-right text-xs text-gray-500">
-                1
-              </div>
-            )}
           </div>
+
+          {/* Footer - Positioned at bottom */}
+          {footerText && (
+            <div 
+              className="absolute bottom-0 left-0 right-0 text-center text-xs text-gray-500 border-t border-gray-200"
+              style={{
+                paddingTop: '12px',
+                paddingBottom: `${pageMargins.bottom}px`,
+                paddingLeft: `${pageMargins.left}px`,
+                paddingRight: `${pageMargins.right}px`,
+                zIndex: 10,
+                background: (letterhead || customLetterhead) ? 'rgba(255, 255, 255, 0.9)' : 'transparent'
+              }}
+            >
+              {footerText}
+            </div>
+          )}
+
+          {/* Page Numbers */}
+          {showPageNumbers && (
+            <div 
+              className="absolute bottom-0 right-0 text-xs text-gray-500"
+              style={{
+                paddingBottom: `${pageMargins.bottom}px`,
+                paddingRight: `${pageMargins.right}px`,
+                zIndex: 10
+              }}
+            >
+              1
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
