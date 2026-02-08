@@ -316,8 +316,8 @@ export default function DocumentGenerator() {
         yPosition += lineHeight;
       }
       
-      // Add signatory at the end (if not already in the text via placeholders)
-      if (signatoryName && !previewText.includes(signatoryName)) {
+      // Add signatory at the end for "None" template or if not in text
+      if (signatoryName && (documentType === 'None' || !previewText.includes(signatoryName))) {
         yPosition += 20; // Add spacing before signature
         
         if (yPosition > 250) {
@@ -951,8 +951,8 @@ const DocumentPreview = React.forwardRef(({
             {previewText}
           </div>
 
-          {/* Signatory - show if not already in text */}
-          {signatoryName && !previewText.includes(signatoryName) && (
+          {/* Signatory - always show for None template, or if not in text */}
+          {signatoryName && (documentType === 'None' || !previewText.includes(signatoryName)) && (
             <div className="mt-8">
               <div className="mb-4">Sincerely,</div>
               <div className="font-semibold">{signatoryName}</div>
