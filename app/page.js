@@ -122,9 +122,30 @@ export default function DocumentGenerator() {
     const loadLetterheadContent = async () => {
       const content = {};
       for (const [key, config] of Object.entries(LETTERHEADS)) {
+        // First, try to load the PNG image file if it exists (prioritize PNG)
+        if (config.imageFile) {
+          try {
+            console.log(`Checking for PNG image file for ${key}: ${config.imageFile}`);
+            const imgResponse = await fetch(config.imageFile);
+            if (imgResponse.ok) {
+              content[key] = {
+                type: 'images',
+                data: [config.imageFile]
+              };
+              console.log(`✅ Found PNG image for ${key} at ${config.imageFile}`);
+              continue; // Skip DOCX processing if PNG is found
+            } else {
+              console.log(`PNG image not found for ${key} at ${config.imageFile}, trying DOCX...`);
+            }
+          } catch (imgError) {
+            console.log(`Error checking PNG for ${key}, trying DOCX:`, imgError.message);
+          }
+        }
+        
+        // If PNG not found, try to extract from DOCX
         if (config.file) {
           try {
-            console.log(`Loading letterhead ${key} from: ${config.file}`);
+            console.log(`Loading letterhead ${key} from DOCX: ${config.file}`);
             const response = await fetch(config.file);
             console.log(`Response status for ${key}:`, response.status, response.ok);
             
@@ -231,6 +252,23 @@ export default function DocumentGenerator() {
                   console.warn(`No content extracted from ${key} - both images and HTML are empty`);
                 }
                 
+                // If DOCX extraction failed or returned empty, try fallback PNG
+                if (!content[key] && config.imageFile) {
+                  console.log(`No content from DOCX for ${key}, trying PNG fallback...`);
+                  try {
+                    const imgResponse = await fetch(config.imageFile);
+                    if (imgResponse.ok) {
+                      content[key] = {
+                        type: 'images',
+                        data: [config.imageFile]
+                      };
+                      console.log(`✅ Found PNG fallback for ${key} at ${config.imageFile}`);
+                    }
+                  } catch (imgError) {
+                    console.warn(`PNG fallback also failed for ${key}:`, imgError);
+                  }
+                }
+                
                 console.log(`Final content for ${key}:`, content[key] ? `${content[key].type} (${content[key].data?.length || 'N/A'} items)` : 'No content');
               } catch (mammothError) {
                 console.error(`Error processing letterhead ${key} with mammoth:`, mammothError);
@@ -277,6 +315,22 @@ export default function DocumentGenerator() {
             } else {
               console.error(`Failed to fetch letterhead ${key}: HTTP ${response.status} ${response.statusText}`);
               console.error(`File path attempted: ${config.file}`);
+              
+              // If DOCX fetch failed, try PNG fallback
+              if (config.imageFile) {
+                try {
+                  const imgResponse = await fetch(config.imageFile);
+                  if (imgResponse.ok) {
+                    content[key] = {
+                      type: 'images',
+                      data: [config.imageFile]
+                    };
+                    console.log(`✅ Found PNG fallback for ${key} at ${config.imageFile}`);
+                  }
+                } catch (imgError) {
+                  console.error(`PNG fallback also failed for ${key}:`, imgError);
+                }
+              }
             }
           } catch (error) {
             console.error(`Error loading letterhead ${key}:`, error);
@@ -285,6 +339,22 @@ export default function DocumentGenerator() {
               stack: error.stack,
               file: config.file
             });
+            
+            // Last resort: try PNG fallback
+            if (config.imageFile) {
+              try {
+                const imgResponse = await fetch(config.imageFile);
+                if (imgResponse.ok) {
+                  content[key] = {
+                    type: 'images',
+                    data: [config.imageFile]
+                  };
+                  console.log(`✅ Found PNG fallback for ${key} at ${config.imageFile}`);
+                }
+              } catch (imgError) {
+                console.error(`PNG fallback also failed for ${key}:`, imgError);
+              }
+            }
           }
         } else {
           console.warn(`No file specified for letterhead ${key}`);
