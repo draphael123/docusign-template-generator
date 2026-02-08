@@ -68,7 +68,7 @@ const LETTERHEADS = {
   },
   HRT: {
     file: '/Letterheads/Fountain Letterhead HRT (1).docx',
-    imageFile: '/Letterheads/Fountain Letterhead HRT (1).png', // Fallback image file
+    imageFile: '/Letterheads/HRT-Header.png', // PNG version of the letterhead
     name: 'HRT',
     displayName: 'HRT Header',
     color: 'from-teal-500 to-emerald-400'
