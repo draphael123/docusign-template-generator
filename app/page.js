@@ -122,11 +122,18 @@ export default function DocumentGenerator() {
       for (const [key, config] of Object.entries(LETTERHEADS)) {
         if (config.file) {
           try {
+            console.log(`Loading letterhead ${key} from: ${config.file}`);
             const response = await fetch(config.file);
+            console.log(`Response status for ${key}:`, response.status, response.ok);
+            
             if (response.ok) {
               const arrayBuffer = await response.arrayBuffer();
+              console.log(`ArrayBuffer size for ${key}:`, arrayBuffer.byteLength, 'bytes');
+              
               try {
                 const mammoth = await import('mammoth');
+                console.log(`Mammoth loaded for ${key}`);
+                
                 // Convert to HTML with images
                 const result = await mammoth.convertToHtml({ arrayBuffer }, {
                   convertImage: mammoth.images.imgElement((image) => {
@@ -138,33 +145,53 @@ export default function DocumentGenerator() {
                   })
                 });
                 
+                console.log(`Mammoth conversion result for ${key}:`, {
+                  htmlLength: result.value.length,
+                  messages: result.messages
+                });
+                
                 // Parse the HTML to extract images and content
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(result.value, 'text/html');
                 const imgElements = doc.querySelectorAll('img');
+                const bodyContent = doc.body.innerHTML;
+                
+                console.log(`Parsed HTML for ${key}:`, {
+                  imageCount: imgElements.length,
+                  bodyContentLength: bodyContent ? bodyContent.length : 0,
+                  bodyContentPreview: bodyContent ? bodyContent.substring(0, 200) : 'empty'
+                });
                 
                 if (imgElements.length > 0) {
                   // Store images
+                  const imageSources = Array.from(imgElements).map(img => img.src);
                   content[key] = {
                     type: 'images',
-                    data: Array.from(imgElements).map(img => img.src)
+                    data: imageSources
                   };
+                  console.log(`Stored ${imageSources.length} images for ${key}`);
+                } else if (bodyContent && bodyContent.trim().length > 0) {
+                  // Store the HTML content to render (even if no images)
+                  content[key] = {
+                    type: 'html',
+                    data: bodyContent
+                  };
+                  console.log(`Stored HTML content for ${key} (${bodyContent.length} chars)`);
                 } else {
-                  // If no images, store the HTML content to render
-                  const bodyContent = doc.body.innerHTML;
-                  if (bodyContent && bodyContent.trim().length > 0) {
-                    content[key] = {
-                      type: 'html',
-                      data: bodyContent
-                    };
-                  }
+                  console.warn(`No content extracted from ${key} - HTML body is empty`);
                 }
                 
-                console.log(`Loaded letterhead ${key}:`, content[key] ? 'Success' : 'No content found');
+                console.log(`Final content for ${key}:`, content[key] ? `${content[key].type} (${content[key].data?.length || 'N/A'} items)` : 'No content');
               } catch (mammothError) {
-                console.error(`Error processing letterhead ${key}:`, mammothError);
+                console.error(`Error processing letterhead ${key} with mammoth:`, mammothError);
+                console.error(`Error details:`, {
+                  message: mammothError.message,
+                  stack: mammothError.stack
+                });
+                
                 // Try to find corresponding image files
                 const imagePath = config.file.replace('.docx', '.png');
+                console.log(`Trying fallback image path for ${key}:`, imagePath);
                 try {
                   const imgResponse = await fetch(imagePath);
                   if (imgResponse.ok) {
@@ -172,19 +199,33 @@ export default function DocumentGenerator() {
                       type: 'images',
                       data: [imagePath]
                     };
+                    console.log(`Found fallback image for ${key}`);
+                  } else {
+                    console.warn(`Fallback image not found for ${key}: ${imgResponse.status}`);
                   }
                 } catch (imgError) {
-                  console.error(`No image file found for ${key}`);
+                  console.error(`Error fetching fallback image for ${key}:`, imgError);
                 }
               }
             } else {
-              console.error(`Failed to fetch letterhead ${key}: ${response.status}`);
+              console.error(`Failed to fetch letterhead ${key}: HTTP ${response.status} ${response.statusText}`);
+              console.error(`File path attempted: ${config.file}`);
             }
           } catch (error) {
             console.error(`Error loading letterhead ${key}:`, error);
+            console.error(`Error details:`, {
+              message: error.message,
+              stack: error.stack,
+              file: config.file
+            });
           }
+        } else {
+          console.warn(`No file specified for letterhead ${key}`);
         }
       }
+      
+      console.log(`Letterhead loading complete. Total loaded:`, Object.keys(content).length);
+      console.log(`Loaded letterheads:`, Object.keys(content));
       setLetterheadImages(content);
     };
     loadLetterheadContent();
@@ -1425,6 +1466,12 @@ const DocumentPreview = React.forwardRef(({
                 );
                 const letterheadContent = letterheadKey ? letterheadImages[letterheadKey] : null;
                 
+                console.log(`Rendering letterhead ${letterheadKey}:`, {
+                  hasContent: !!letterheadContent,
+                  type: letterheadContent?.type,
+                  dataLength: letterheadContent?.data?.length || 0
+                });
+                
                 if (letterheadContent) {
                   if (letterheadContent.type === 'images' && letterheadContent.data && letterheadContent.data.length > 0) {
                     return (
@@ -1436,6 +1483,13 @@ const DocumentPreview = React.forwardRef(({
                             alt={`${letterhead.displayName || letterhead.name} Letterhead`} 
                             className="w-full h-full object-cover"
                             style={{ objectFit: 'cover', objectPosition: 'top' }}
+                            onError={(e) => {
+                              console.error(`Failed to load letterhead image ${idx} for ${letterheadKey}:`, imgSrc);
+                              e.target.style.display = 'none';
+                            }}
+                            onLoad={() => {
+                              console.log(`Successfully loaded letterhead image ${idx} for ${letterheadKey}`);
+                            }}
                           />
                         ))}
                       </div>
@@ -1446,12 +1500,19 @@ const DocumentPreview = React.forwardRef(({
                         className="w-full h-full letterhead-content"
                         style={{ 
                           background: 'white',
-                          overflow: 'hidden'
+                          overflow: 'hidden',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0
                         }}
                         dangerouslySetInnerHTML={{ __html: letterheadContent.data }}
                       />
                     );
                   }
+                } else {
+                  console.warn(`No letterhead content found for ${letterheadKey}. Available keys:`, Object.keys(letterheadImages));
                 }
                 
                 // Fallback to text display (shouldn't happen if letterhead is properly loaded)
