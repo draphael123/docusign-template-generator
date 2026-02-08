@@ -183,15 +183,15 @@ export default function DocumentGenerator() {
     }, 0);
   };
 
-  // Helper function to load and crop image header (top 15% of the image)
+  // Helper function to load and crop image header (top 20% of the image)
   const loadHeaderImage = (url) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Crop to top 15% of the image (just the header portion)
-        const cropHeight = Math.floor(img.height * 0.15);
+        // Crop to top 20% of the image (the header portion)
+        const cropHeight = Math.floor(img.height * 0.20);
         canvas.width = img.width;
         canvas.height = cropHeight;
         const ctx = canvas.getContext('2d');
@@ -212,17 +212,18 @@ export default function DocumentGenerator() {
     try {
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm for A4
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm for A4
       
       const letterheadData = LETTERHEADS[letterhead];
       
       // Try to load and add letterhead image (cropped to header only)
-      let headerHeight = 35;
+      let headerHeight = 45;
       try {
         const { data: imgData, aspectRatio } = await loadHeaderImage(letterheadData.image);
-        // Calculate height to maintain aspect ratio
+        // Calculate height to maintain aspect ratio - full page width
         headerHeight = pageWidth / aspectRatio;
-        if (headerHeight > 50) headerHeight = 50; // Max height cap
+        // Add image spanning full page width, edge to edge
         pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, headerHeight);
       } catch (imgError) {
         // If image fails, add text header
@@ -231,8 +232,8 @@ export default function DocumentGenerator() {
         pdf.setTextColor(0, 128, 128);
         pdf.text(letterheadData.fullName, 20, 25);
         pdf.setDrawColor(0, 128, 128);
-        pdf.line(20, 30, pageWidth - 20, 30);
-        headerHeight = 35;
+        pdf.line(0, 35, pageWidth, 35);
+        headerHeight = 45;
       }
       
       // Reset text color to black
