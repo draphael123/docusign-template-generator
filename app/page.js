@@ -61,12 +61,14 @@ Sincerely,
 const LETTERHEADS = {
   TRT: {
     file: '/Letterheads/TRT Header Template.docx',
+    imageFile: '/Letterheads/TRT Header Template.png', // Fallback image file
     name: 'TRT',
     displayName: 'TRT Header',
     color: 'from-blue-500 to-cyan-400'
   },
   HRT: {
     file: '/Letterheads/Fountain Letterhead HRT (1).docx',
+    imageFile: '/Letterheads/Fountain Letterhead HRT (1).png', // Fallback image file
     name: 'HRT',
     displayName: 'HRT Header',
     color: 'from-teal-500 to-emerald-400'
@@ -134,51 +136,99 @@ export default function DocumentGenerator() {
                 const mammoth = await import('mammoth');
                 console.log(`Mammoth loaded for ${key}`);
                 
-                // Convert to HTML with images
-                const result = await mammoth.convertToHtml({ arrayBuffer }, {
-                  convertImage: mammoth.images.imgElement((image) => {
-                    return image.read('base64').then((imageBuffer) => {
-                      return {
-                        src: `data:${image.contentType};base64,${imageBuffer}`
-                      };
+                // Try multiple conversion methods
+                let result;
+                let images = [];
+                let htmlContent = '';
+                
+                // Method 1: Convert to HTML with images
+                try {
+                  result = await mammoth.convertToHtml({ arrayBuffer }, {
+                    convertImage: mammoth.images.imgElement((image) => {
+                      return image.read('base64').then((imageBuffer) => {
+                        return {
+                          src: `data:${image.contentType};base64,${imageBuffer}`
+                        };
+                      });
+                    })
+                  });
+                  
+                  console.log(`Mammoth conversion result for ${key}:`, {
+                    htmlLength: result.value.length,
+                    messages: result.messages
+                  });
+                  
+                  // Parse the HTML to extract images and content
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(result.value, 'text/html');
+                  const imgElements = doc.querySelectorAll('img');
+                  htmlContent = doc.body.innerHTML;
+                  
+                  if (imgElements.length > 0) {
+                    images = Array.from(imgElements).map(img => img.src);
+                  }
+                  
+                  console.log(`Parsed HTML for ${key}:`, {
+                    imageCount: images.length,
+                    bodyContentLength: htmlContent ? htmlContent.length : 0,
+                    bodyContentPreview: htmlContent ? htmlContent.substring(0, 300) : 'empty'
+                  });
+                } catch (htmlError) {
+                  console.warn(`HTML conversion failed for ${key}, trying raw text:`, htmlError);
+                  
+                  // Method 2: Try extracting raw text and images separately
+                  try {
+                    const textResult = await mammoth.extractRawText({ arrayBuffer });
+                    console.log(`Raw text extracted for ${key}:`, textResult.value.substring(0, 100));
+                    
+                    // Try to extract images separately
+                    const imageResult = await mammoth.convertToHtml({ arrayBuffer }, {
+                      convertImage: mammoth.images.imgElement((image) => {
+                        return image.read('base64').then((imageBuffer) => {
+                          images.push(`data:${image.contentType};base64,${imageBuffer}`);
+                          return { src: `data:${image.contentType};base64,${imageBuffer}` };
+                        });
+                      })
                     });
-                  })
-                });
+                    
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(imageResult.value, 'text/html');
+                    const imgElements = doc.querySelectorAll('img');
+                    if (imgElements.length > 0) {
+                      images = Array.from(imgElements).map(img => img.src);
+                    }
+                    htmlContent = doc.body.innerHTML;
+                  } catch (fallbackError) {
+                    console.error(`Fallback extraction also failed for ${key}:`, fallbackError);
+                  }
+                }
                 
-                console.log(`Mammoth conversion result for ${key}:`, {
-                  htmlLength: result.value.length,
-                  messages: result.messages
-                });
-                
-                // Parse the HTML to extract images and content
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(result.value, 'text/html');
-                const imgElements = doc.querySelectorAll('img');
-                const bodyContent = doc.body.innerHTML;
-                
-                console.log(`Parsed HTML for ${key}:`, {
-                  imageCount: imgElements.length,
-                  bodyContentLength: bodyContent ? bodyContent.length : 0,
-                  bodyContentPreview: bodyContent ? bodyContent.substring(0, 200) : 'empty'
-                });
-                
-                if (imgElements.length > 0) {
-                  // Store images
-                  const imageSources = Array.from(imgElements).map(img => img.src);
+                // Store the content
+                if (images.length > 0) {
                   content[key] = {
                     type: 'images',
-                    data: imageSources
+                    data: images
                   };
-                  console.log(`Stored ${imageSources.length} images for ${key}`);
-                } else if (bodyContent && bodyContent.trim().length > 0) {
-                  // Store the HTML content to render (even if no images)
-                  content[key] = {
-                    type: 'html',
-                    data: bodyContent
-                  };
-                  console.log(`Stored HTML content for ${key} (${bodyContent.length} chars)`);
+                  console.log(`Stored ${images.length} images for ${key}`);
+                } else if (htmlContent && htmlContent.trim().length > 0) {
+                  // Clean up the HTML content
+                  let cleanedHtml = htmlContent;
+                  // Remove empty paragraphs and common unwanted text
+                  cleanedHtml = cleanedHtml.replace(/<p[^>]*>\s*<\/p>/g, '');
+                  cleanedHtml = cleanedHtml.replace(/<p[^>]*>test<\/p>/gi, '');
+                  cleanedHtml = cleanedHtml.replace(/February\s+\d+,\s+\d{4}/gi, '');
+                  
+                  if (cleanedHtml.trim().length > 0) {
+                    content[key] = {
+                      type: 'html',
+                      data: cleanedHtml
+                    };
+                    console.log(`Stored HTML content for ${key} (${cleanedHtml.length} chars)`);
+                  } else {
+                    console.warn(`HTML content for ${key} was empty after cleaning`);
+                  }
                 } else {
-                  console.warn(`No content extracted from ${key} - HTML body is empty`);
+                  console.warn(`No content extracted from ${key} - both images and HTML are empty`);
                 }
                 
                 console.log(`Final content for ${key}:`, content[key] ? `${content[key].type} (${content[key].data?.length || 'N/A'} items)` : 'No content');
@@ -189,22 +239,39 @@ export default function DocumentGenerator() {
                   stack: mammothError.stack
                 });
                 
-                // Try to find corresponding image files
-                const imagePath = config.file.replace('.docx', '.png');
-                console.log(`Trying fallback image path for ${key}:`, imagePath);
-                try {
-                  const imgResponse = await fetch(imagePath);
-                  if (imgResponse.ok) {
-                    content[key] = {
-                      type: 'images',
-                      data: [imagePath]
-                    };
-                    console.log(`Found fallback image for ${key}`);
-                  } else {
-                    console.warn(`Fallback image not found for ${key}: ${imgResponse.status}`);
+                // Try multiple fallback image paths
+                const imagePaths = [];
+                
+                // First, try the configured imageFile if it exists
+                if (config.imageFile) {
+                  imagePaths.push(config.imageFile);
+                }
+                
+                // Then try common image extensions
+                const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
+                imagePaths.push(...imageExtensions.map(ext => config.file.replace('.docx', ext)));
+                
+                let fallbackFound = false;
+                for (const imagePath of imagePaths) {
+                  console.log(`Trying fallback image path for ${key}:`, imagePath);
+                  try {
+                    const imgResponse = await fetch(imagePath);
+                    if (imgResponse.ok) {
+                      content[key] = {
+                        type: 'images',
+                        data: [imagePath]
+                      };
+                      console.log(`Found fallback image for ${key} at ${imagePath}`);
+                      fallbackFound = true;
+                      break;
+                    }
+                  } catch (imgError) {
+                    // Continue to next path
                   }
-                } catch (imgError) {
-                  console.error(`Error fetching fallback image for ${key}:`, imgError);
+                }
+                
+                if (!fallbackFound) {
+                  console.warn(`No fallback image found for ${key} - tried:`, imagePaths);
                 }
               }
             } else {
@@ -1516,10 +1583,26 @@ const DocumentPreview = React.forwardRef(({
                   }
                 } else {
                   console.warn(`No letterhead content found for ${letterheadKey}. Available keys:`, Object.keys(letterheadImages));
+                  // Show a loading or error message
+                  return (
+                    <div className="w-full p-8 text-center border-2 border-dashed border-gray-300 rounded-lg">
+                      <div className="text-gray-500 mb-2">⚠️ Letterhead loading...</div>
+                      <div className="text-xs text-gray-400">
+                        If this persists, please convert the letterhead .docx to an image file (PNG/JPG) and place it in public/Letterheads/
+                      </div>
+                    </div>
+                  );
                 }
                 
                 // Fallback to text display (shouldn't happen if letterhead is properly loaded)
-                return null;
+                return (
+                  <div className="w-full p-8 text-center border-2 border-dashed border-gray-300 rounded-lg">
+                    <div className="text-gray-500 mb-2">⚠️ Letterhead not available</div>
+                    <div className="text-xs text-gray-400">
+                      Please check the console for extraction errors
+                    </div>
+                  </div>
+                );
               })()}
             </div>
           )}
