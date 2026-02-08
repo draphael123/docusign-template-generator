@@ -1438,25 +1438,30 @@ const DocumentPreview = React.forwardRef(({
             marginTop: '0'
           }}
         >
-          {/* Letterhead as Full-Page Background */}
+          {/* Header */}
+          {headerText && (
+            <div className="text-center text-xs text-gray-500 border-b border-gray-200 pb-1 mb-4" style={{ paddingTop: `${pageMargins.top - 20}px` }}>
+              {headerText}
+            </div>
+          )}
+
+          {/* Letterhead Header */}
           {(letterhead || customLetterhead) && (
             <div 
-              className="absolute inset-0 z-0"
+              className="mb-8"
               style={{
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                margin: 0,
-                padding: 0
+                marginTop: headerText ? '0' : `${pageMargins.top}px`,
+                marginLeft: `-${pageMargins.left}px`,
+                marginRight: `-${pageMargins.right}px`,
+                width: `calc(100% + ${pageMargins.left + pageMargins.right}px)`
               }}
             >
               {customLetterhead && customLetterhead.type === 'image' ? (
                 <img 
                   src={customLetterhead.data} 
                   alt="Custom Letterhead" 
-                  className="w-full h-full object-cover"
-                  style={{ objectFit: 'cover', objectPosition: 'top' }}
+                  className="w-full h-auto"
+                  style={{ display: 'block' }}
                 />
               ) : letterhead && (() => {
                 // Find the letterhead key from the object
@@ -1475,14 +1480,14 @@ const DocumentPreview = React.forwardRef(({
                 if (letterheadContent) {
                   if (letterheadContent.type === 'images' && letterheadContent.data && letterheadContent.data.length > 0) {
                     return (
-                      <div className="w-full h-full">
+                      <div className="w-full">
                         {letterheadContent.data.map((imgSrc, idx) => (
                           <img 
                             key={idx} 
                             src={imgSrc} 
                             alt={`${letterhead.displayName || letterhead.name} Letterhead`} 
-                            className="w-full h-full object-cover"
-                            style={{ objectFit: 'cover', objectPosition: 'top' }}
+                            className="w-full h-auto"
+                            style={{ display: 'block' }}
                             onError={(e) => {
                               console.error(`Failed to load letterhead image ${idx} for ${letterheadKey}:`, imgSrc);
                               e.target.style.display = 'none';
@@ -1497,15 +1502,10 @@ const DocumentPreview = React.forwardRef(({
                   } else if (letterheadContent.type === 'html' && letterheadContent.data) {
                     return (
                       <div 
-                        className="w-full h-full letterhead-content"
+                        className="w-full letterhead-content"
                         style={{ 
                           background: 'white',
-                          overflow: 'hidden',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0
+                          overflow: 'hidden'
                         }}
                         dangerouslySetInnerHTML={{ __html: letterheadContent.data }}
                       />
@@ -1521,15 +1521,8 @@ const DocumentPreview = React.forwardRef(({
             </div>
           )}
 
-          {/* Header */}
-          {headerText && (
-            <div className="absolute top-0 left-0 right-0 text-center text-xs text-gray-500 border-b border-gray-200 pb-1 z-10" style={{ paddingTop: `${pageMargins.top - 20}px` }}>
-              {headerText}
-            </div>
-          )}
-
-          {/* Document Content - Positioned above letterhead */}
-          <div className="relative z-10">
+          {/* Document Content - Appears below letterhead */}
+          <div className="relative">
             {/* Date */}
             <div className="text-right mb-6 text-sm text-gray-600">
               {new Date().toLocaleDateString('en-US', { 
@@ -1584,21 +1577,21 @@ const DocumentPreview = React.forwardRef(({
                 )}
               </div>
             )}
+
+            {/* Footer */}
+            {footerText && (
+              <div className="mt-8 pt-4 text-center text-xs text-gray-500 border-t border-gray-200">
+                {footerText}
+              </div>
+            )}
+
+            {/* Page Numbers */}
+            {showPageNumbers && (
+              <div className="mt-8 text-right text-xs text-gray-500">
+                1
+              </div>
+            )}
           </div>
-
-          {/* Footer */}
-          {footerText && (
-            <div className="absolute bottom-0 left-0 right-0 text-center text-xs text-gray-500 border-t border-gray-200 pt-1 z-10" style={{ paddingBottom: `${pageMargins.bottom - 20}px` }}>
-              {footerText}
-            </div>
-          )}
-
-          {/* Page Numbers */}
-          {showPageNumbers && (
-            <div className="absolute bottom-0 right-0 text-xs text-gray-500 z-10" style={{ paddingBottom: `${pageMargins.bottom - 20}px`, paddingRight: `${pageMargins.right}px` }}>
-              1
-            </div>
-          )}
         </div>
       </div>
     </motion.div>
