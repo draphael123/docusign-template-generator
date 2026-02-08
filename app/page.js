@@ -74,6 +74,42 @@ export default function DocumentGenerator() {
     }
   };
 
+  // Import document function
+  const handleFileImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Set document name from filename (without extension)
+    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+    setDocumentName(nameWithoutExt);
+
+    try {
+      if (file.name.endsWith('.txt')) {
+        // Handle plain text files
+        const text = await file.text();
+        setDocumentBody(text);
+      } else if (file.name.endsWith('.docx')) {
+        // Handle .docx files using mammoth
+        const arrayBuffer = await file.arrayBuffer();
+        const mammoth = await import('mammoth');
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        setDocumentBody(result.value);
+      } else if (file.name.endsWith('.doc')) {
+        alert('Legacy .doc files are not supported. Please convert to .docx or .txt first.');
+      } else {
+        // Try to read as text
+        const text = await file.text();
+        setDocumentBody(text);
+      }
+    } catch (error) {
+      console.error('Error importing file:', error);
+      alert('Error importing file. Please try a .txt or .docx file.');
+    }
+
+    // Reset the input so the same file can be selected again
+    event.target.value = '';
+  };
+
   const getPreviewText = () => {
     let text = documentBody;
     text = text.replace(/\{\{Recipient_Name\}\}/g, recipientName || '{{Recipient_Name}}');
@@ -469,32 +505,54 @@ export default function DocumentGenerator() {
             <section className={`rounded-xl p-5 border transition-colors duration-300 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={`text-sm font-medium uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Document Body</h2>
-                <button
-                  onClick={copyToClipboard}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all ${
-                    copied 
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
-                      : darkMode 
+                <div className="flex items-center gap-2">
+                  {/* Import Document Button */}
+                  <label
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
+                      darkMode 
                         ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700' 
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300'
-                  }`}
-                >
-                  {copied ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Copy Text
-                    </>
-                  )}
-                </button>
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Import
+                    <input
+                      type="file"
+                      accept=".txt,.docx,.doc"
+                      onChange={handleFileImport}
+                      className="hidden"
+                    />
+                  </label>
+                  {/* Copy Button */}
+                  <button
+                    onClick={copyToClipboard}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-all ${
+                      copied 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+                        : darkMode 
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-300'
+                    }`}
+                  >
+                    {copied ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <textarea
                 id="documentBody"
@@ -665,8 +723,8 @@ export default function DocumentGenerator() {
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold text-teal-500 mb-2">6. Write Your Document</h3>
-                  <p className={darkMode ? 'text-slate-400' : 'text-gray-600'}>Enter your document content in the text area. The preview updates in real-time. Use "Copy Text" to copy your document to the clipboard.</p>
+                  <h3 className="font-semibold text-teal-500 mb-2">6. Write or Import Your Document</h3>
+                  <p className={darkMode ? 'text-slate-400' : 'text-gray-600'}>Enter your document content in the text area, or click "Import" to upload an existing .txt or .docx file. The letterhead will be automatically added. Use "Copy" to copy your document to the clipboard.</p>
                 </div>
                 
                 <div>
@@ -677,6 +735,7 @@ export default function DocumentGenerator() {
                 <div className={`pt-4 border-t ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}>
                   <h3 className={`font-semibold mb-2 ${darkMode ? 'text-slate-300' : 'text-gray-700'}`}>Tips</h3>
                   <ul className={`space-y-1 list-disc list-inside ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                    <li>Import existing .txt or .docx files to add letterhead to them</li>
                     <li>The signatory will automatically appear at the end of your document</li>
                     <li>The letterhead header and footer are included in exports</li>
                     <li>Use the preview to check formatting before downloading</li>
