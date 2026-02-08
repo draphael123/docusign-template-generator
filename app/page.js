@@ -125,20 +125,40 @@ export default function DocumentGenerator() {
         // First, try to load the PNG image file if it exists (prioritize PNG)
         if (config.imageFile) {
           try {
-            console.log(`Checking for PNG image file for ${key}: ${config.imageFile}`);
-            const imgResponse = await fetch(config.imageFile);
+            console.log(`[${key}] Checking for PNG image file: ${config.imageFile}`);
+            const imgResponse = await fetch(config.imageFile, { 
+              method: 'HEAD', // Use HEAD first to check if file exists
+              cache: 'no-cache'
+            });
+            
+            console.log(`[${key}] PNG HEAD response status: ${imgResponse.status} ${imgResponse.statusText}`);
+            
             if (imgResponse.ok) {
-              content[key] = {
-                type: 'images',
-                data: [config.imageFile]
-              };
-              console.log(`✅ Found PNG image for ${key} at ${config.imageFile}`);
-              continue; // Skip DOCX processing if PNG is found
+              // File exists, now verify it's actually an image by fetching it
+              const imgResponseFull = await fetch(config.imageFile, { cache: 'no-cache' });
+              if (imgResponseFull.ok) {
+                const contentType = imgResponseFull.headers.get('content-type');
+                console.log(`[${key}] PNG content type: ${contentType}`);
+                
+                if (contentType && contentType.startsWith('image/')) {
+                  content[key] = {
+                    type: 'images',
+                    data: [config.imageFile]
+                  };
+                  console.log(`✅ [${key}] Successfully loaded PNG image from ${config.imageFile}`);
+                  continue; // Skip DOCX processing if PNG is found
+                } else {
+                  console.warn(`[${key}] File exists but is not an image (content-type: ${contentType}), trying DOCX...`);
+                }
+              } else {
+                console.warn(`[${key}] PNG file exists but full fetch failed: ${imgResponseFull.status}, trying DOCX...`);
+              }
             } else {
-              console.log(`PNG image not found for ${key} at ${config.imageFile}, trying DOCX...`);
+              console.log(`[${key}] PNG image not found (${imgResponse.status}), trying DOCX...`);
             }
           } catch (imgError) {
-            console.log(`Error checking PNG for ${key}, trying DOCX:`, imgError.message);
+            console.error(`[${key}] Error checking PNG:`, imgError);
+            console.log(`[${key}] Will try DOCX as fallback`);
           }
         }
         
