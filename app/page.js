@@ -186,18 +186,43 @@ export default function DocumentGenerator() {
   // Download PDF
   const downloadPDF = async () => {
     const element = previewRef.current;
-    if (!element) return;
+    if (!element) {
+      alert('Preview not ready. Please try again.');
+      return;
+    }
 
     try {
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
 
-      const canvas = await html2canvas(element, {
+      // Clone the element to avoid modifying the original
+      const clone = element.cloneNode(true);
+      clone.style.width = '210mm';
+      clone.style.minHeight = '297mm';
+      clone.style.padding = '48px';
+      clone.style.background = '#ffffff';
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      document.body.appendChild(clone);
+
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          // Ensure images are loaded
+          const images = clonedDoc.getElementsByTagName('img');
+          for (let img of images) {
+            img.crossOrigin = 'anonymous';
+          }
+        }
       });
+
+      document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -210,10 +235,38 @@ export default function DocumentGenerator() {
       const imgY = 0;
 
       pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      pdf.save(`${documentType.replace(/\s+/g, '_')}.pdf`);
+      
+      const fileName = documentType === 'None' ? 'Document' : documentType.replace(/\s+/g, '_');
+      pdf.save(`${fileName}.pdf`);
     } catch (error) {
       console.error('PDF generation error:', error);
-      alert('PDF generation failed. Please try again.');
+      // Fallback: try without images
+      try {
+        const { jsPDF } = await import('jspdf');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const letterheadData = LETTERHEADS[letterhead];
+        pdf.setFontSize(20);
+        pdf.text(letterheadData.fullName, 20, 20);
+        
+        pdf.setFontSize(12);
+        const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        pdf.text(date, 190, 40, { align: 'right' });
+        
+        if (recipientName) {
+          pdf.text(recipientName, 20, 50);
+        }
+        
+        const previewText = getPreviewText();
+        const lines = pdf.splitTextToSize(previewText, 170);
+        pdf.text(lines, 20, 70);
+        
+        const fileName = documentType === 'None' ? 'Document' : documentType.replace(/\s+/g, '_');
+        pdf.save(`${fileName}.pdf`);
+      } catch (fallbackError) {
+        console.error('Fallback PDF generation error:', fallbackError);
+        alert('PDF generation failed. Please try using the Word export instead.');
+      }
     }
   };
 
