@@ -1441,12 +1441,14 @@ const DocumentPreview = React.forwardRef(({
           {/* Letterhead Header */}
           {(letterhead || customLetterhead) && (
             <div 
-              className="mb-8"
+              className="mb-0"
               style={{
                 marginTop: headerText ? '0' : `${pageMargins.top}px`,
                 marginLeft: `-${pageMargins.left}px`,
                 marginRight: `-${pageMargins.right}px`,
-                width: `calc(100% + ${pageMargins.left + pageMargins.right}px)`
+                width: `calc(100% + ${pageMargins.left + pageMargins.right}px)`,
+                position: 'relative',
+                zIndex: 1
               }}
             >
               {customLetterhead && customLetterhead.type === 'image' ? (
@@ -1522,8 +1524,14 @@ const DocumentPreview = React.forwardRef(({
             </div>
           )}
 
-          {/* Document Content - Appears below letterhead */}
-          <div className="relative">
+          {/* Document Content - Appears in middle section below letterhead */}
+          <div 
+            className="relative"
+            style={{
+              marginTop: (letterhead || customLetterhead) ? '80px' : '0',
+              paddingTop: (letterhead || customLetterhead) ? '40px' : '0'
+            }}
+          >
             {/* Recipient */}
             {recipientName && (
               <div className="mb-6 text-sm">
@@ -1542,7 +1550,7 @@ const DocumentPreview = React.forwardRef(({
 
             {/* Document Body */}
             <div 
-              className="whitespace-pre-wrap mb-8"
+              className="whitespace-pre-wrap mb-8 flex-grow"
               style={{
                 fontSize: `${fontSize}px`,
                 lineHeight: lineSpacing,
