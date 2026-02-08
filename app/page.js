@@ -264,12 +264,7 @@ export default function DocumentGenerator() {
       // Reset text color to black
       pdf.setTextColor(0, 0, 0);
       
-      // Date (right aligned) - positioned below header
-      pdf.setFontSize(11);
-      const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      pdf.text(date, pageWidth - 20, headerHeight + 15, { align: 'right' });
-      
-      let yPosition = headerHeight + 30;
+      let yPosition = headerHeight + 15;
       
       // Recipient info
       if (recipientName) {
@@ -874,7 +869,7 @@ const DocumentPreview = React.forwardRef(({
       <div className="bg-white text-gray-900 rounded-lg shadow-2xl overflow-hidden">
         <div 
           ref={ref}
-          className="p-12 min-h-[29.7cm]"
+          className="p-12 min-h-[29.7cm] flex flex-col"
           style={{
             fontFamily: fontFamily || "'Libre Baskerville', serif"
           }}
@@ -899,14 +894,6 @@ const DocumentPreview = React.forwardRef(({
             </div>
           </div>
 
-          {/* Date */}
-          <div className="text-right mb-6 text-sm text-gray-600">
-            {new Date().toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </div>
 
           {/* Recipient */}
           {recipientName && (
@@ -926,13 +913,31 @@ const DocumentPreview = React.forwardRef(({
 
           {/* Document Body */}
           <div 
-            className="whitespace-pre-wrap"
+            className="whitespace-pre-wrap flex-grow"
             style={{
               fontSize: `${fontSize}px`,
               lineHeight: lineSpacing
             }}
           >
             {previewText}
+          </div>
+
+          {/* Footer */}
+          <div className="-mx-12 -mb-12 mt-auto">
+            <div className="overflow-hidden" style={{ maxHeight: '100px' }}>
+              <img 
+                src={letterhead.image} 
+                alt={`${letterhead.fullName} Footer`}
+                className="w-full h-auto"
+                style={{ 
+                  marginTop: '-87%',
+                  clipPath: 'inset(87% 0 0 0)'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
