@@ -1626,35 +1626,55 @@ const DocumentPreview = React.forwardRef(({
                 console.log(`Rendering letterhead ${letterheadKey}:`, {
                   hasContent: !!letterheadContent,
                   type: letterheadContent?.type,
-                  dataLength: letterheadContent?.data?.length || 0
+                  dataLength: letterheadContent?.data?.length || 0,
+                  data: letterheadContent?.data
                 });
                 
                 if (letterheadContent) {
                   if (letterheadContent.type === 'images' && letterheadContent.data && letterheadContent.data.length > 0) {
                     return (
                       <div className="w-full h-full">
-                        {letterheadContent.data.map((imgSrc, idx) => (
-                          <img 
-                            key={idx} 
-                            src={imgSrc} 
-                            alt={`${letterhead.displayName || letterhead.name} Letterhead`} 
-                            className="w-full h-full object-cover"
-                            style={{ 
-                              objectFit: 'cover', 
-                              objectPosition: 'top',
-                              width: '100%',
-                              height: '100%',
-                              display: 'block'
-                            }}
-                            onError={(e) => {
-                              console.error(`Failed to load letterhead image ${idx} for ${letterheadKey}:`, imgSrc);
-                              e.target.style.display = 'none';
-                            }}
-                            onLoad={() => {
-                              console.log(`Successfully loaded letterhead image ${idx} for ${letterheadKey}`);
-                            }}
-                          />
-                        ))}
+                        {letterheadContent.data.map((imgSrc, idx) => {
+                          // Ensure the image path is correct
+                          const imagePath = imgSrc.startsWith('http') || imgSrc.startsWith('/') 
+                            ? imgSrc 
+                            : `/Letterheads/${imgSrc}`;
+                          
+                          console.log(`[${letterheadKey}] Loading image ${idx} from:`, imagePath);
+                          
+                          return (
+                            <img 
+                              key={idx} 
+                              src={imagePath} 
+                              alt={`${letterhead.displayName || letterhead.name} Letterhead`} 
+                              className="w-full h-full object-cover"
+                              style={{ 
+                                objectFit: 'cover', 
+                                objectPosition: 'top',
+                                width: '100%',
+                                height: '100%',
+                                display: 'block'
+                              }}
+                              onError={(e) => {
+                                console.error(`[${letterheadKey}] Failed to load letterhead image ${idx}:`, {
+                                  src: imagePath,
+                                  error: e,
+                                  attemptedPath: imgSrc
+                                });
+                                // Try direct fallback for HRT
+                                if (letterheadKey === 'HRT' && !imagePath.includes('HRT-Header.png')) {
+                                  console.log(`[${letterheadKey}] Trying direct HRT-Header.png fallback...`);
+                                  e.target.src = '/Letterheads/HRT-Header.png';
+                                } else {
+                                  e.target.style.display = 'none';
+                                }
+                              }}
+                              onLoad={() => {
+                                console.log(`✅ [${letterheadKey}] Successfully loaded letterhead image ${idx} from:`, imagePath);
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     );
                   } else if (letterheadContent.type === 'html' && letterheadContent.data) {
