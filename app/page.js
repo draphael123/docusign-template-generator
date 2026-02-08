@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-
-// Letterhead configurations - images in public/headers/
+// Letterhead configurations
 const LETTERHEADS = {
   TRT: {
     name: 'Fountain TRT',
@@ -22,47 +21,17 @@ const LETTERHEADS = {
 
 // Signatory configurations
 const SIGNATORIES = {
-  'lindsay': {
-    name: 'Lindsay Burden',
-    title: 'Chief Clinical Operations Officer'
-  },
-  'tzvi': {
-    name: 'Tzvi Doron',
-    title: 'Chief Clinical Officer'
-  },
-  'doron': {
-    name: 'Doron Stember',
-    title: 'Chief Medical Officer'
-  }
+  'lindsay': { name: 'Lindsay Burden', title: 'Chief Clinical Operations Officer' },
+  'tzvi': { name: 'Tzvi Doron', title: 'Chief Clinical Officer' },
+  'doron': { name: 'Doron Stember', title: 'Chief Medical Officer' }
 };
 
 // Font configurations
 const FONTS = {
-  'libre': {
-    name: 'Libre Baskerville',
-    family: "'Libre Baskerville', serif",
-    style: 'Classic Serif'
-  },
-  'georgia': {
-    name: 'Georgia',
-    family: "Georgia, 'Times New Roman', serif",
-    style: 'Traditional'
-  },
-  'arial': {
-    name: 'Arial',
-    family: "Arial, Helvetica, sans-serif",
-    style: 'Clean Sans'
-  },
-  'times': {
-    name: 'Times New Roman',
-    family: "'Times New Roman', Times, serif",
-    style: 'Formal'
-  },
-  'courier': {
-    name: 'Courier New',
-    family: "'Courier New', Courier, monospace",
-    style: 'Typewriter'
-  }
+  'libre': { name: 'Libre Baskerville', family: "'Libre Baskerville', serif" },
+  'georgia': { name: 'Georgia', family: "Georgia, 'Times New Roman', serif" },
+  'arial': { name: 'Arial', family: "Arial, Helvetica, sans-serif" },
+  'times': { name: 'Times New Roman', family: "'Times New Roman', Times, serif" }
 };
 
 export default function DocumentGenerator() {
@@ -80,158 +49,104 @@ export default function DocumentGenerator() {
   const [lineSpacing, setLineSpacing] = useState(1.5);
   const [selectedFont, setSelectedFont] = useState('libre');
   const [showPreview, setShowPreview] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   
   const previewRef = useRef(null);
 
-
-  // Replace placeholders in the document
   const getPreviewText = () => {
     let text = documentBody;
     text = text.replace(/\{\{Recipient_Name\}\}/g, recipientName || '{{Recipient_Name}}');
     text = text.replace(/\{\{Signatory_Name\}\}/g, signatoryName || '{{Signatory_Name}}');
     text = text.replace(/\{\{Signatory_Title\}\}/g, signatoryTitle || '{{Signatory_Title}}');
     text = text.replace(/\{\{Date\}\}/g, new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+      year: 'numeric', month: 'long', day: 'numeric' 
     }));
     return text;
   };
 
-  // Calculate progress
-  const progress = {
-    signatorySelected: signatoryName !== '' && signatoryTitle !== '',
-    documentFilled: documentBody.trim() !== ''
-  };
+  const allComplete = signatoryName && signatoryTitle && documentBody.trim();
 
-  const allComplete = Object.values(progress).every(v => v);
-  const completionPercentage = (Object.values(progress).filter(v => v).length / 2) * 100;
-
-  // Insert placeholder at cursor
-  const insertPlaceholder = (placeholder) => {
-    const textarea = document.getElementById('documentBody');
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = documentBody;
-    const before = text.substring(0, start);
-    const after = text.substring(end);
-    setDocumentBody(before + placeholder + after);
-    
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + placeholder.length, start + placeholder.length);
-    }, 0);
-  };
-
-  // Helper function to load and crop image header (top 20% of the image)
+  // Helper functions for PDF generation
   const loadHeaderImage = (url) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Crop to top 20% of the image (the header portion)
         const cropHeight = Math.floor(img.height * 0.20);
         canvas.width = img.width;
         canvas.height = cropHeight;
         const ctx = canvas.getContext('2d');
-        // Draw only the top portion of the image
         ctx.drawImage(img, 0, 0, img.width, cropHeight, 0, 0, img.width, cropHeight);
-        resolve({ 
-          data: canvas.toDataURL('image/png'),
-          aspectRatio: img.width / cropHeight
-        });
+        resolve({ data: canvas.toDataURL('image/png'), aspectRatio: img.width / cropHeight });
       };
       img.onerror = reject;
       img.src = url;
     });
   };
 
-  // Helper function to load and crop image footer (bottom 12% of the image)
   const loadFooterImage = (url) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Crop to bottom 12% of the image (the footer portion)
         const cropHeight = Math.floor(img.height * 0.12);
         const startY = img.height - cropHeight;
         canvas.width = img.width;
         canvas.height = cropHeight;
         const ctx = canvas.getContext('2d');
-        // Draw only the bottom portion of the image
         ctx.drawImage(img, 0, startY, img.width, cropHeight, 0, 0, img.width, cropHeight);
-        resolve({ 
-          data: canvas.toDataURL('image/png'),
-          aspectRatio: img.width / cropHeight
-        });
+        resolve({ data: canvas.toDataURL('image/png'), aspectRatio: img.width / cropHeight });
       };
       img.onerror = reject;
       img.src = url;
     });
   };
 
-  // Download PDF
   const downloadPDF = async () => {
     try {
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm for A4
-      const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm for A4
-      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const letterheadData = LETTERHEADS[letterhead];
       
-      // Try to load and add letterhead image (cropped to header only)
       let headerHeight = 45;
       try {
         const { data: imgData, aspectRatio } = await loadHeaderImage(letterheadData.image);
-        // Calculate height to maintain aspect ratio - full page width
         headerHeight = pageWidth / aspectRatio;
-        // Add image spanning full page width, edge to edge
         pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, headerHeight);
-      } catch (imgError) {
-        // If image fails, add text header
-        console.log('Image load failed, using text header');
+      } catch {
         pdf.setFontSize(24);
         pdf.setTextColor(0, 128, 128);
         pdf.text(letterheadData.fullName, 20, 25);
-        pdf.setDrawColor(0, 128, 128);
         pdf.line(0, 35, pageWidth, 35);
         headerHeight = 45;
       }
       
-      // Reset text color to black
       pdf.setTextColor(0, 0, 0);
-      
       let yPosition = headerHeight + 15;
       
-      // Recipient info
       if (recipientName) {
         pdf.setFontSize(12);
         pdf.setFont(undefined, 'bold');
         pdf.text(recipientName, 20, yPosition);
         yPosition += 6;
-        
         if (recipientTitle) {
           pdf.setFont(undefined, 'normal');
           pdf.setTextColor(100, 100, 100);
           pdf.text(recipientTitle, 20, yPosition);
           yPosition += 6;
         }
-        
         if (recipientAddress) {
-          pdf.setFont(undefined, 'normal');
-          pdf.setTextColor(100, 100, 100);
           pdf.text(recipientAddress, 20, yPosition);
           yPosition += 6;
         }
-        
         pdf.setTextColor(0, 0, 0);
         yPosition += 8;
       }
       
-      // Subject line
       if (subjectLine) {
         pdf.setFont(undefined, 'bold');
         pdf.text(`Re: ${subjectLine}`, 20, yPosition);
@@ -239,196 +154,157 @@ export default function DocumentGenerator() {
         yPosition += 12;
       }
       
-      // Document body
       pdf.setFontSize(fontSize);
-      pdf.setFont(undefined, 'normal');
       const previewText = getPreviewText();
       const lines = pdf.splitTextToSize(previewText, pageWidth - 40);
-      
-      // Check if we need multiple pages
       const lineHeight = fontSize * 0.5;
+      
       for (let i = 0; i < lines.length; i++) {
-        if (yPosition > 250) {
-          pdf.addPage();
-          yPosition = 20;
-        }
+        if (yPosition > 250) { pdf.addPage(); yPosition = 20; }
         pdf.text(lines[i], 20, yPosition);
         yPosition += lineHeight;
       }
       
-      // Add signatory at the end for "None" template or if not in text
       if (signatoryName && !previewText.includes(signatoryName)) {
-        yPosition += 20; // Add spacing before signature
-        
-        if (yPosition > 250) {
-          pdf.addPage();
-          yPosition = 30;
-        }
-        
-        pdf.setFont(undefined, 'normal');
+        yPosition += 20;
+        if (yPosition > 250) { pdf.addPage(); yPosition = 30; }
         pdf.text('Sincerely,', 20, yPosition);
         yPosition += 15;
-        
         pdf.setFont(undefined, 'bold');
         pdf.text(signatoryName, 20, yPosition);
         yPosition += 6;
-        
         if (signatoryTitle) {
           pdf.setFont(undefined, 'normal');
           pdf.text(signatoryTitle, 20, yPosition);
         }
       }
       
-      // Add footer image at the bottom of the page
       try {
         const { data: footerData, aspectRatio: footerRatio } = await loadFooterImage(letterheadData.image);
         const footerHeight = pageWidth / footerRatio;
-        const footerY = pageHeight - footerHeight;
-        pdf.addImage(footerData, 'PNG', 0, footerY, pageWidth, footerHeight);
-      } catch (footerError) {
-        console.log('Footer image load failed');
-      }
+        pdf.addImage(footerData, 'PNG', 0, pageHeight - footerHeight, pageWidth, footerHeight);
+      } catch {}
       
       pdf.save('Document.pdf');
     } catch (error) {
       console.error('PDF generation error:', error);
-      alert('PDF generation failed. Please try using the Word export instead.');
+      alert('PDF generation failed. Please try the Word export.');
     }
   };
 
-  // Download Word
   const downloadWord = () => {
-    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Document</title></head><body>`;
-    const footer = '</body></html>';
-    const content = previewRef.current.innerHTML;
-    const html = header + content + footer;
-    
-    const blob = new Blob(['\ufeff', html], {
-      type: 'application/msword'
-    });
-    
-    const url = URL.createObjectURL(blob);
+    const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Document</title></head><body>${previewRef.current.innerHTML}</body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
     const link = document.createElement('a');
-    link.href = url;
+    link.href = URL.createObjectURL(blob);
     link.download = 'Document.doc';
     link.click();
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-gray-100 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-950 text-slate-200">
       {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
-      >
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#ff6b6b] to-orange-400 bg-clip-text text-transparent mb-2">
-          Document Generator
-        </h1>
-        <p className="text-gray-400">Create professional documents with ease</p>
-      </motion.div>
-
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column - Controls */}
-        <div className="space-y-6 h-fit">
-          
-          {/* Letterhead Selection */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
-          >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">🏢</span>
-              LETTERHEAD
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.keys(LETTERHEADS).map(type => (
-                <button
-                  key={type}
-                  onClick={() => setLetterhead(type)}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    letterhead === type 
-                      ? 'border-[#ff6b6b] bg-[#ff6b6b]/10' 
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                >
-                  <div className={`text-lg font-bold bg-gradient-to-r ${LETTERHEADS[type].color} bg-clip-text text-transparent mb-1`}>
-                    {LETTERHEADS[type].name}
-                  </div>
-                  <div className="text-xs text-gray-400">{LETTERHEADS[type].fullName}</div>
-                </button>
-              ))}
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center font-bold text-slate-900">
+              F
             </div>
-          </motion.div>
-
-          {/* Recipient Details */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
+            <div>
+              <h1 className="text-lg font-semibold text-white">Fountain Document Generator</h1>
+              <p className="text-xs text-slate-500">Create professional letterhead documents</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="px-4 py-2 text-sm border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
           >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">👤</span>
-              RECIPIENT DETAILS
-            </h2>
-            <div className="space-y-4">
-              <div className="flex gap-3">
+            How to Use
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          
+          {/* Left Column - Controls */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Letterhead */}
+            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Letterhead</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(LETTERHEADS).map(([key, lh]) => (
+                  <button
+                    key={key}
+                    onClick={() => setLetterhead(key)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      letterhead === key 
+                        ? 'border-teal-500 bg-teal-500/10' 
+                        : 'border-slate-700 hover:border-slate-600'
+                    }`}
+                  >
+                    <span className={`text-sm font-semibold bg-gradient-to-r ${lh.color} bg-clip-text text-transparent`}>
+                      {lh.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Recipient */}
+            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Recipient (Optional)</h2>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-colors"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={recipientTitle}
+                    onChange={(e) => setRecipientTitle(e.target.value)}
+                    className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-colors"
+                  />
+                </div>
                 <input
                   type="text"
-                  placeholder="Name"
-                  value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
-                  className="flex-1 bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all"
+                  placeholder="Address"
+                  value={recipientAddress}
+                  onChange={(e) => setRecipientAddress(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-colors"
                 />
                 <input
                   type="text"
-                  placeholder="Title"
-                  value={recipientTitle}
-                  onChange={(e) => setRecipientTitle(e.target.value)}
-                  className="flex-1 bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all"
+                  placeholder="Subject line"
+                  value={subjectLine}
+                  onChange={(e) => setSubjectLine(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-colors"
                 />
               </div>
-              <input
-                type="text"
-                placeholder="Address (123 Example Ave, City, State 12345)"
-                value={recipientAddress}
-                onChange={(e) => setRecipientAddress(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all"
-              />
-              <input
-                type="text"
-                placeholder="Subject Line (optional)"
-                value={subjectLine}
-                onChange={(e) => setSubjectLine(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all"
-              />
-            </div>
-          </motion.div>
+            </section>
 
-          {/* Signatory */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
-          >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">✍️</span>
-              DOCUMENT SIGNATURE
-            </h2>
-            
-            <div className="space-y-4">
-              {/* Predefined Signatories */}
+            {/* Signatory */}
+            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Signatory</h2>
               <div className="space-y-2">
                 {Object.entries(SIGNATORIES).map(([key, signer]) => (
-                  <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                  <label
+                    key={key}
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                      !useCustomSignatory && selectedSignatory === key
+                        ? 'bg-teal-500/10 border border-teal-500/50'
+                        : 'hover:bg-slate-800 border border-transparent'
+                    }`}
+                  >
                     <input
                       type="radio"
                       name="signatory"
-                      value={key}
                       checked={!useCustomSignatory && selectedSignatory === key}
                       onChange={() => {
                         setUseCustomSignatory(false);
@@ -436,216 +312,282 @@ export default function DocumentGenerator() {
                         setSignatoryName(signer.name);
                         setSignatoryTitle(signer.title);
                       }}
-                      className="w-4 h-4 text-[#ff6b6b] border-gray-600 focus:ring-[#ff6b6b]"
+                      className="w-4 h-4 text-teal-500 border-slate-600 focus:ring-teal-500 focus:ring-offset-slate-900"
                     />
-                    <div className="flex flex-col">
-                      <span className="text-sm text-gray-200 group-hover:text-white transition-colors font-medium">
-                        {signer.name}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {signer.title}
-                      </span>
+                    <div>
+                      <div className="text-sm font-medium text-white">{signer.name}</div>
+                      <div className="text-xs text-slate-500">{signer.title}</div>
                     </div>
                   </label>
                 ))}
-                
-                {/* Custom Signature Option */}
-                <label className="flex items-center gap-3 cursor-pointer group">
+                <label
+                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                    useCustomSignatory
+                      ? 'bg-teal-500/10 border border-teal-500/50'
+                      : 'hover:bg-slate-800 border border-transparent'
+                  }`}
+                >
                   <input
                     type="radio"
                     name="signatory"
-                    value="custom"
                     checked={useCustomSignatory}
                     onChange={() => {
                       setUseCustomSignatory(true);
                       setSignatoryName('');
                       setSignatoryTitle('');
                     }}
-                    className="w-4 h-4 text-[#ff6b6b] border-gray-600 focus:ring-[#ff6b6b]"
+                    className="w-4 h-4 text-teal-500 border-slate-600 focus:ring-teal-500"
                   />
-                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
-                    Custom Signature
-                  </span>
+                  <span className="text-sm text-slate-400">Custom signatory</span>
                 </label>
+                {useCustomSignatory && (
+                  <div className="space-y-2 pt-2 ml-7">
+                    <input
+                      type="text"
+                      placeholder="Name"
+                      value={signatoryName}
+                      onChange={(e) => setSignatoryName(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Title"
+                      value={signatoryTitle}
+                      onChange={(e) => setSignatoryTitle(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+                )}
               </div>
+            </section>
 
-              {/* Custom Signatory Details */}
-              {useCustomSignatory && (
-                <div className="space-y-3 pt-3 border-t border-gray-700">
+            {/* Formatting */}
+            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Formatting</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-slate-500 mb-2 block">Font</label>
+                  <select
+                    value={selectedFont}
+                    onChange={(e) => setSelectedFont(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-teal-500"
+                  >
+                    {Object.entries(FONTS).map(([key, font]) => (
+                      <option key={key} value={key}>{font.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-2 block">Font Size: {fontSize}pt</label>
                   <input
-                    type="text"
-                    placeholder="Signatory Name"
-                    value={signatoryName}
-                    onChange={(e) => setSignatoryName(e.target.value)}
-                    className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Signatory Title"
-                    value={signatoryTitle}
-                    onChange={(e) => setSignatoryTitle(e.target.value)}
-                    className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all"
+                    type="range"
+                    min="10"
+                    max="18"
+                    value={fontSize}
+                    onChange={(e) => setFontSize(Number(e.target.value))}
+                    className="w-full accent-teal-500"
                   />
                 </div>
-              )}
-            </div>
-          </motion.div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-2 block">Line Spacing: {lineSpacing}</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="2"
+                    step="0.1"
+                    value={lineSpacing}
+                    onChange={(e) => setLineSpacing(Number(e.target.value))}
+                    className="w-full accent-teal-500"
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
 
-          {/* Formatting Tools */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
-          >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">🎨</span>
-              FORMATTING TOOLS
-            </h2>
+          {/* Right Column - Document Body & Preview */}
+          <div className="lg:col-span-3 space-y-6">
             
-            <div className="space-y-4">
-              {/* Font Selection */}
-              <div>
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Font Family</span>
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {Object.entries(FONTS).map(([key, font]) => (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedFont(key)}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        selectedFont === key 
-                          ? 'border-[#ff6b6b] bg-[#ff6b6b]/10' 
-                          : 'border-gray-700 hover:border-gray-600'
-                      }`}
-                    >
-                      <div className="text-sm font-medium" style={{ fontFamily: font.family }}>
-                        {font.name}
-                      </div>
-                      <div className="text-xs text-gray-500">{font.style}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Document Body */}
+            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Document Body</h2>
+              <textarea
+                id="documentBody"
+                value={documentBody}
+                onChange={(e) => setDocumentBody(e.target.value)}
+                className="w-full h-48 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-teal-500 resize-none"
+                placeholder="Enter your document content here..."
+                style={{ fontFamily: FONTS[selectedFont].family }}
+              />
+            </section>
 
-              <div>
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Font Size: {fontSize}pt</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="20"
-                  value={fontSize}
-                  onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="w-full accent-[#ff6b6b]"
-                />
+            {/* Preview */}
+            <section className="bg-slate-900 rounded-xl p-5 border border-slate-800">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Preview</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={downloadPDF}
+                    disabled={!allComplete}
+                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
+                      allComplete
+                        ? 'bg-teal-600 hover:bg-teal-500 text-white'
+                        : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={downloadWord}
+                    disabled={!allComplete}
+                    className={`px-4 py-2 text-sm rounded-lg font-medium transition-all ${
+                      allComplete
+                        ? 'bg-slate-700 hover:bg-slate-600 text-white'
+                        : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                    }`}
+                  >
+                    Download Word
+                  </button>
+                </div>
               </div>
               
-              <div>
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Line Spacing: {lineSpacing}</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="2.5"
-                  step="0.1"
-                  value={lineSpacing}
-                  onChange={(e) => setLineSpacing(Number(e.target.value))}
-                  className="w-full accent-[#ff6b6b]"
-                />
+              {/* A4 Preview */}
+              <div className="bg-white text-gray-900 rounded-lg shadow-xl overflow-hidden" style={{ aspectRatio: '210/297' }}>
+                <div 
+                  ref={previewRef}
+                  className="p-8 h-full flex flex-col text-xs"
+                  style={{ fontFamily: FONTS[selectedFont].family }}
+                >
+                  {/* Letterhead */}
+                  <div className="-mx-8 -mt-8 mb-4">
+                    <div className="overflow-hidden" style={{ maxHeight: '80px' }}>
+                      <img 
+                        src={LETTERHEADS[letterhead].image} 
+                        alt="Letterhead"
+                        className="w-full h-auto"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
+                  </div>
+
+                  {recipientName && (
+                    <div className="mb-3">
+                      <div className="font-semibold">{recipientName}</div>
+                      {recipientTitle && <div className="text-gray-600">{recipientTitle}</div>}
+                      {recipientAddress && <div className="text-gray-600">{recipientAddress}</div>}
+                    </div>
+                  )}
+
+                  {subjectLine && (
+                    <div className="mb-3 font-semibold">Re: {subjectLine}</div>
+                  )}
+
+                  <div 
+                    className="whitespace-pre-wrap flex-grow"
+                    style={{ fontSize: `${fontSize * 0.6}px`, lineHeight: lineSpacing }}
+                  >
+                    {getPreviewText()}
+                  </div>
+
+                  {signatoryName && !getPreviewText().includes(signatoryName) && (
+                    <div className="mt-4">
+                      <div className="mb-2">Sincerely,</div>
+                      <div className="font-semibold">{signatoryName}</div>
+                      {signatoryTitle && <div className="text-gray-600">{signatoryTitle}</div>}
+                    </div>
+                  )}
+
+                  <div className="flex-grow"></div>
+
+                  {/* Footer */}
+                  <div className="-mx-8 -mb-8 mt-auto">
+                    <div className="overflow-hidden" style={{ maxHeight: '50px' }}>
+                      <img 
+                        src={LETTERHEADS[letterhead].image} 
+                        alt="Footer"
+                        className="w-full h-auto"
+                        style={{ marginTop: '-87%', clipPath: 'inset(87% 0 0 0)' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </section>
+          </div>
+        </div>
+      </main>
 
-          {/* Document Body Editor */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.5 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
+      {/* Help Modal */}
+      <AnimatePresence>
+        {showHelp && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowHelp(false)}
           >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">📝</span>
-              DOCUMENT BODY
-            </h2>
-            
-            {/* Toolbar */}
-            <div className="flex flex-wrap gap-2 mb-3 p-3 bg-[#1a1a1a] rounded-lg border border-gray-700">
-              <button 
-                onClick={() => insertPlaceholder('{{Date}}')}
-                className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 rounded text-xs transition-colors"
-                title="Insert Date"
-              >
-                📅 Date
-              </button>
-              <button 
-                onClick={() => insertPlaceholder('{{Signature}}')}
-                className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/50 rounded text-xs transition-colors"
-                title="Insert Signature"
-              >
-                ✍️ Signature
-              </button>
-              <button 
-                onClick={() => insertPlaceholder('{{Recipient_Name}}')}
-                className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 border border-green-500/50 rounded text-xs transition-colors"
-                title="Insert Recipient Name"
-              >
-                👤 Name
-              </button>
-              <button 
-                onClick={() => insertPlaceholder('{{Company_Name}}')}
-                className="px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/50 rounded text-xs transition-colors"
-                title="Insert Company"
-              >
-                🏢 Company
-              </button>
-            </div>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900 rounded-xl p-6 max-w-lg w-full border border-slate-800 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">How to Use</h2>
+                <button
+                  onClick={() => setShowHelp(false)}
+                  className="text-slate-500 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-6 text-sm">
+                <div>
+                  <h3 className="font-semibold text-teal-400 mb-2">1. Select a Letterhead</h3>
+                  <p className="text-slate-400">Choose between Fountain TRT (teal) or Fountain HRT (pink) letterhead templates.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-teal-400 mb-2">2. Add Recipient Details (Optional)</h3>
+                  <p className="text-slate-400">Enter the recipient's name, title, address, and subject line if needed.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-teal-400 mb-2">3. Select a Signatory</h3>
+                  <p className="text-slate-400">Choose from predefined signatories (Lindsay Burden, Tzvi Doron, or Doron Stember) or enter a custom signatory.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-teal-400 mb-2">4. Adjust Formatting</h3>
+                  <p className="text-slate-400">Customize the font family, size, and line spacing to match your preferences.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-teal-400 mb-2">5. Write Your Document</h3>
+                  <p className="text-slate-400">Enter your document content in the text area. The preview will update in real-time.</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-teal-400 mb-2">6. Download</h3>
+                  <p className="text-slate-400">Once you've filled in the required fields (signatory and document body), click "Download PDF" or "Download Word" to export your document.</p>
+                </div>
 
-            <textarea
-              id="documentBody"
-              value={documentBody}
-              onChange={(e) => setDocumentBody(e.target.value)}
-              className="w-full h-64 bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] transition-all font-mono text-sm resize-none"
-              placeholder="Enter your document text here..."
-            />
-            
-            <p className="text-xs text-gray-500 mt-2">
-              💡 Use placeholders like {`{{Recipient_Name}}`} for dynamic content
-            </p>
+                <div className="pt-4 border-t border-slate-800">
+                  <h3 className="font-semibold text-slate-300 mb-2">Tips</h3>
+                  <ul className="text-slate-400 space-y-1 list-disc list-inside">
+                    <li>The signatory will automatically appear at the end of your document</li>
+                    <li>The letterhead header and footer are included in exports</li>
+                    <li>Use the preview to check formatting before downloading</li>
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
-        </div>
-
-        {/* Right Column - Preview (Desktop) */}
-        <div className="hidden lg:block sticky top-8 h-fit">
-          <DocumentPreview
-            ref={previewRef}
-            letterhead={LETTERHEADS[letterhead]}
-            recipientName={recipientName}
-            recipientTitle={recipientTitle}
-            recipientAddress={recipientAddress}
-            subjectLine={subjectLine}
-            previewText={getPreviewText()}
-            fontSize={fontSize}
-            lineSpacing={lineSpacing}
-            fontFamily={FONTS[selectedFont].family}
-            signatoryName={signatoryName}
-            signatoryTitle={signatoryTitle}
-          />
-        </div>
-      </div>
-
-      {/* Mobile Preview Button */}
-      <div className="lg:hidden fixed bottom-24 right-4">
-        <button
-          onClick={() => setShowPreview(true)}
-          className="bg-gradient-to-r from-[#ff6b6b] to-orange-500 text-white px-6 py-3 rounded-full shadow-2xl hover:shadow-[#ff6b6b]/50 transition-all"
-        >
-          👁️ Preview
-        </button>
-      </div>
+        )}
+      </AnimatePresence>
 
       {/* Mobile Preview Modal */}
       <AnimatePresence>
@@ -657,238 +599,15 @@ export default function DocumentGenerator() {
             className="lg:hidden fixed inset-0 bg-black/90 z-50 overflow-auto p-4"
             onClick={() => setShowPreview(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              onClick={(e) => e.stopPropagation()}
-              className="max-w-2xl mx-auto"
+            <button
+              onClick={() => setShowPreview(false)}
+              className="mb-4 text-white"
             >
-              <button
-                onClick={() => setShowPreview(false)}
-                className="mb-4 bg-gray-800 px-4 py-2 rounded-lg"
-              >
-                ← Back
-              </button>
-              <DocumentPreview
-                ref={previewRef}
-                letterhead={LETTERHEADS[letterhead]}
-                recipientName={recipientName}
-                recipientTitle={recipientTitle}
-                recipientAddress={recipientAddress}
-                subjectLine={subjectLine}
-                previewText={getPreviewText()}
-                fontSize={fontSize}
-                lineSpacing={lineSpacing}
-                fontFamily={FONTS[selectedFont].family}
-                signatoryName={signatoryName}
-                signatoryTitle={signatoryTitle}
-              />
-            </motion.div>
+              ← Back
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Progress & Actions Footer */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 p-4 backdrop-blur-xl bg-opacity-95"
-      >
-        <div className="max-w-7xl mx-auto">
-          {/* Progress Bar */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-400">Document Progress</span>
-              <span className="text-sm font-medium text-[#ff6b6b]">{Math.round(completionPercentage)}%</span>
-            </div>
-            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${completionPercentage}%` }}
-                className="h-full bg-gradient-to-r from-[#ff6b6b] to-orange-500"
-                transition={{ duration: 0.5 }}
-              />
-            </div>
-          </div>
-
-          {/* Checklist */}
-          <div className="flex flex-wrap gap-4 mb-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                progress.signatorySelected ? 'bg-green-500' : 'bg-gray-700'
-              }`}>
-                {progress.signatorySelected && '✓'}
-              </div>
-              <span className={progress.signatorySelected ? 'text-green-400' : 'text-gray-500'}>
-                Signatory selected
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                progress.documentFilled ? 'bg-green-500' : 'bg-gray-700'
-              }`}>
-                {progress.documentFilled && '✓'}
-              </div>
-              <span className={progress.documentFilled ? 'text-green-400' : 'text-gray-500'}>
-                Document filled
-              </span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setShowPreview(true)}
-              className="flex-1 min-w-[120px] bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
-            >
-              👁️ Preview
-            </button>
-            <button
-              onClick={downloadPDF}
-              disabled={!allComplete}
-              className={`flex-1 min-w-[120px] px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                allComplete
-                  ? 'bg-gradient-to-r from-[#ff6b6b] to-orange-500 hover:shadow-lg hover:shadow-[#ff6b6b]/50'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-            >
-              📄 Download PDF
-            </button>
-            <button
-              onClick={downloadWord}
-              disabled={!allComplete}
-              className={`flex-1 min-w-[120px] px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                allComplete
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-            >
-              📝 Word
-            </button>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 }
-
-// Document Preview Component
-const DocumentPreview = React.forwardRef(({ 
-  letterhead, 
-  recipientName, 
-  recipientTitle, 
-  recipientAddress,
-  subjectLine,
-  previewText,
-  fontSize,
-  lineSpacing,
-  fontFamily,
-  signatoryName,
-  signatoryTitle
-}, ref) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
-    >
-      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <span className="text-2xl">📋</span>
-        LIVE PREVIEW
-      </h2>
-
-      {/* A4 Paper Simulation */}
-      <div className="bg-white text-gray-900 rounded-lg shadow-2xl overflow-hidden">
-        <div 
-          ref={ref}
-          className="p-12 min-h-[29.7cm] flex flex-col"
-          style={{
-            fontFamily: fontFamily || "'Libre Baskerville', serif"
-          }}
-        >
-          {/* Letterhead */}
-          <div className="mb-6 -mx-12 -mt-12">
-            <div className="overflow-hidden" style={{ maxHeight: '180px' }}>
-              <img 
-                src={letterhead.image} 
-                alt={`${letterhead.fullName} Letterhead`}
-                className="w-full h-auto"
-                onError={(e) => {
-                  e.target.parentElement.style.display = 'none';
-                  e.target.parentElement.nextSibling.style.display = 'block';
-                }}
-              />
-            </div>
-            <div className="hidden px-12 pb-6 border-b-2 border-gray-300">
-              <div className={`text-3xl font-bold bg-gradient-to-r ${letterhead.color} bg-clip-text text-transparent`}>
-                {letterhead.fullName}
-              </div>
-            </div>
-          </div>
-
-
-          {/* Recipient */}
-          {recipientName && (
-            <div className="mb-6 text-sm">
-              <div className="font-semibold">{recipientName}</div>
-              {recipientTitle && <div className="text-gray-600">{recipientTitle}</div>}
-              {recipientAddress && <div className="text-gray-600">{recipientAddress}</div>}
-            </div>
-          )}
-
-          {/* Subject Line */}
-          {subjectLine && (
-            <div className="mb-6 font-semibold">
-              Re: {subjectLine}
-            </div>
-          )}
-
-          {/* Document Body */}
-          <div 
-            className="whitespace-pre-wrap"
-            style={{
-              fontSize: `${fontSize}px`,
-              lineHeight: lineSpacing
-            }}
-          >
-            {previewText}
-          </div>
-
-          {/* Signatory - show if not already in text */}
-          {signatoryName && !previewText.includes(signatoryName) && (
-            <div className="mt-8">
-              <div className="mb-4">Sincerely,</div>
-              <div className="font-semibold">{signatoryName}</div>
-              {signatoryTitle && <div className="text-gray-600">{signatoryTitle}</div>}
-            </div>
-          )}
-
-          {/* Spacer to push footer down */}
-          <div className="flex-grow"></div>
-
-          {/* Footer */}
-          <div className="-mx-12 -mb-12 mt-auto">
-            <div className="overflow-hidden" style={{ maxHeight: '100px' }}>
-              <img 
-                src={letterhead.image} 
-                alt={`${letterhead.fullName} Footer`}
-                className="w-full h-auto"
-                style={{ 
-                  marginTop: '-87%',
-                  clipPath: 'inset(87% 0 0 0)'
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-});
-
-DocumentPreview.displayName = 'DocumentPreview';
