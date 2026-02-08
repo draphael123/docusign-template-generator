@@ -57,41 +57,66 @@ Sincerely,
 {{Signatory_Name}}`
 };
 
-// Letterhead configurations
+// Letterhead configurations based on files in Letterheads folder
 const LETTERHEADS = {
   TRT: {
-    logo: '🏥',
-    name: 'The Remedy Therapy',
-    color: 'from-blue-500 to-cyan-400',
-    address: '123 Wellness Ave, Health City, HC 12345'
-  },
-  HRT: {
-    logo: '💊',
-    name: 'Hormone Replacement Therapy Co.',
-    color: 'from-purple-500 to-pink-400',
-    address: '456 Medical Blvd, Care Town, CT 67890'
+    file: '/Letterheads/TRT Header Template.docx',
+    name: 'TRT',
+    displayName: 'TRT Header',
+    color: 'from-blue-500 to-cyan-400'
   },
   Fountain: {
-    logo: '⛲',
-    name: 'Fountain Wellness',
-    color: 'from-teal-500 to-emerald-400',
-    address: '789 Perimenopause Plaza, Wellness City, WC 54321'
+    file: '/Letterheads/Fountain Letterhead HRT (1).docx',
+    name: 'Fountain',
+    displayName: 'Fountain Letterhead',
+    color: 'from-teal-500 to-emerald-400'
   }
 };
 
+// Document signers
+const SIGNERS = {
+  'Doron Stember': {
+    name: 'Doron Stember',
+    title: 'Chief Medical Officer'
+  },
+  'Tzvi Doron': {
+    name: 'Tzvi Doron',
+    title: 'Chief Clinical Officer'
+  },
+  'Lindsay Burden': {
+    name: 'Lindsay Burden',
+    title: 'Chief Clinical Operations Officer'
+  }
+};
+
+// Available fonts
+const FONTS = {
+  "'Libre Baskerville', serif": 'Libre Baskerville',
+  "'Times New Roman', serif": 'Times New Roman',
+  "'Georgia', serif": 'Georgia',
+  "'Garamond', serif": 'Garamond',
+  "'Arial', sans-serif": 'Arial',
+  "'Helvetica', sans-serif": 'Helvetica',
+  "'Calibri', sans-serif": 'Calibri',
+  "'Verdana', sans-serif": 'Verdana',
+  "'Courier New', monospace": 'Courier New'
+};
+
 export default function DocumentGenerator() {
-  const [documentType, setDocumentType] = useState('Letter of Recommendation');
-  const [letterhead, setLetterhead] = useState('TRT');
+  const [documentType, setDocumentType] = useState('');
+  const [letterhead, setLetterhead] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [recipientTitle, setRecipientTitle] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [subjectLine, setSubjectLine] = useState('');
-  const [documentBody, setDocumentBody] = useState(TEMPLATES[documentType]);
-  const [signatoryName, setSignatoryName] = useState('Dr. Sarah Mitchell');
-  const [signatoryTitle, setSignatoryTitle] = useState('Chief Medical Officer');
+  const [documentBody, setDocumentBody] = useState('');
+  const [selectedSigner, setSelectedSigner] = useState('');
+  const [signatoryName, setSignatoryName] = useState('');
+  const [signatoryTitle, setSignatoryTitle] = useState('');
   const [signatureType, setSignatureType] = useState('Decent Standlee');
   const [fontSize, setFontSize] = useState(14);
   const [lineSpacing, setLineSpacing] = useState(1.5);
+  const [fontFamily, setFontFamily] = useState("'Libre Baskerville', serif");
   const [showPreview, setShowPreview] = useState(false);
   
   const previewRef = useRef(null);
@@ -99,7 +124,11 @@ export default function DocumentGenerator() {
 
   // Update document body when template changes
   useEffect(() => {
-    setDocumentBody(TEMPLATES[documentType]);
+    if (documentType && TEMPLATES[documentType]) {
+      setDocumentBody(TEMPLATES[documentType]);
+    } else if (!documentType) {
+      setDocumentBody('');
+    }
   }, [documentType]);
 
   // Replace placeholders in the document
@@ -252,27 +281,6 @@ export default function DocumentGenerator() {
         {/* Left Column - Controls */}
         <div className="space-y-6 h-fit">
           
-          {/* Document Type Selection */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
-          >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">📄</span>
-              DOCUMENT TYPE
-            </h2>
-            <select 
-              value={documentType}
-              onChange={(e) => setDocumentType(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-transparent transition-all"
-            >
-              {Object.keys(TEMPLATES).map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </motion.div>
-
           {/* Letterhead Selection */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
@@ -284,7 +292,7 @@ export default function DocumentGenerator() {
               <span className="text-2xl">🏢</span>
               LETTERHEAD
             </h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {Object.keys(LETTERHEADS).map(type => (
                 <button
                   key={type}
@@ -295,8 +303,8 @@ export default function DocumentGenerator() {
                       : 'border-gray-700 hover:border-gray-600'
                   }`}
                 >
-                  <div className="text-2xl mb-1">{LETTERHEADS[type].logo}</div>
-                  <div className="text-xs font-medium">{type}</div>
+                  <div className="text-xs font-medium">{LETTERHEADS[type].displayName || type}</div>
+                  <div className="text-[10px] text-gray-400 mt-1">.docx</div>
                 </button>
               ))}
             </div>
@@ -379,20 +387,53 @@ export default function DocumentGenerator() {
                 ))}
               </div>
 
+              {/* Signer Selection */}
+              <div className="pt-3 border-t border-gray-700">
+                <label className="block text-sm text-gray-400 mb-2">Select Signer</label>
+                <select
+                  value={selectedSigner}
+                  onChange={(e) => {
+                    const signer = e.target.value;
+                    setSelectedSigner(signer);
+                    if (signer && SIGNERS[signer]) {
+                      setSignatoryName(SIGNERS[signer].name);
+                      setSignatoryTitle(SIGNERS[signer].title);
+                    } else {
+                      setSignatoryName('');
+                      setSignatoryTitle('');
+                    }
+                  }}
+                  className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
+                >
+                  <option value="">-- Select a signer --</option>
+                  {Object.keys(SIGNERS).map((name) => (
+                    <option key={name} value={name}>
+                      {name} - {SIGNERS[name].title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Signatory Details */}
               <div className="space-y-3 pt-3 border-t border-gray-700">
                 <input
                   type="text"
                   placeholder="Signatory Name"
                   value={signatoryName}
-                  onChange={(e) => setSignatoryName(e.target.value)}
+                  onChange={(e) => {
+                    setSignatoryName(e.target.value);
+                    setSelectedSigner('');
+                  }}
                   className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
                 />
                 <input
                   type="text"
                   placeholder="Signatory Title"
                   value={signatoryTitle}
-                  onChange={(e) => setSignatoryTitle(e.target.value)}
+                  onChange={(e) => {
+                    setSignatoryTitle(e.target.value);
+                    setSelectedSigner('');
+                  }}
                   className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
                 />
               </div>
@@ -412,6 +453,21 @@ export default function DocumentGenerator() {
             </h2>
             
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Font Family</label>
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
+                >
+                  {Object.entries(FONTS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-400">Font Size: {fontSize}pt</span>
@@ -524,6 +580,7 @@ export default function DocumentGenerator() {
             previewText={getPreviewText()}
             fontSize={fontSize}
             lineSpacing={lineSpacing}
+            fontFamily={fontFamily}
             signatoryName={signatoryName}
             signatoryTitle={signatoryTitle}
           />
@@ -574,6 +631,7 @@ export default function DocumentGenerator() {
                 previewText={getPreviewText()}
                 fontSize={fontSize}
                 lineSpacing={lineSpacing}
+                fontFamily={fontFamily}
                 signatoryName={signatoryName}
                 signatoryTitle={signatoryTitle}
               />
@@ -688,6 +746,7 @@ const DocumentPreview = React.forwardRef(({
   previewText,
   fontSize,
   lineSpacing,
+  fontFamily,
   signatoryName,
   signatoryTitle
 }, ref) => {
@@ -708,7 +767,7 @@ const DocumentPreview = React.forwardRef(({
           ref={ref}
           className="px-12 pt-20 pb-12 min-h-[29.7cm] relative"
           style={{
-            fontFamily: "'Libre Baskerville', serif",
+            fontFamily: fontFamily || "'Libre Baskerville', serif",
             paddingTop: '5rem',
             marginTop: '0'
           }}
@@ -717,17 +776,12 @@ const DocumentPreview = React.forwardRef(({
           {letterhead && (
             <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px', paddingTop: '1rem', marginTop: '0' }}>
               <div className="flex items-start gap-3 mb-2">
-                <span className="text-4xl flex-shrink-0" style={{ lineHeight: '1.2' }}>
-                  {letterhead.logo || '🏢'}
-                </span>
                 <div className="flex-1">
                   <h1 
                     className="text-4xl font-bold leading-tight mb-2"
                     style={{
                       background: letterhead.color === 'from-blue-500 to-cyan-400' 
                         ? 'linear-gradient(to right, #3b82f6, #22d3ee)'
-                        : letterhead.color === 'from-purple-500 to-pink-400'
-                        ? 'linear-gradient(to right, #a855f7, #f472b6)'
                         : letterhead.color === 'from-teal-500 to-emerald-400'
                         ? 'linear-gradient(to right, #14b8a6, #34d399)'
                         : 'linear-gradient(to right, #6b7280, #9ca3af)',
@@ -736,8 +790,6 @@ const DocumentPreview = React.forwardRef(({
                       backgroundClip: 'text',
                       color: letterhead.color === 'from-blue-500 to-cyan-400' 
                         ? '#3b82f6'
-                        : letterhead.color === 'from-purple-500 to-pink-400'
-                        ? '#a855f7'
                         : letterhead.color === 'from-teal-500 to-emerald-400'
                         ? '#14b8a6'
                         : '#6b7280',
@@ -746,10 +798,12 @@ const DocumentPreview = React.forwardRef(({
                       lineHeight: '1.1'
                     }}
                   >
-                    {letterhead.name || 'Company Name'}
+                    {letterhead.displayName || letterhead.name || 'Letterhead'}
                   </h1>
-                  {letterhead.address && (
-                    <div className="text-sm text-gray-600 mt-2">{letterhead.address}</div>
+                  {letterhead.file && (
+                    <div className="text-xs text-gray-500 mt-2">
+                      Source: {letterhead.file.split('/').pop()}
+                    </div>
                   )}
                 </div>
               </div>
