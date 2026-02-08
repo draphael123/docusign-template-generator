@@ -65,10 +65,10 @@ const LETTERHEADS = {
     displayName: 'TRT Header',
     color: 'from-blue-500 to-cyan-400'
   },
-  Fountain: {
+  HRT: {
     file: '/Letterheads/Fountain Letterhead HRT (1).docx',
-    name: 'Fountain',
-    displayName: 'Fountain Letterhead',
+    name: 'HRT',
+    displayName: 'HRT Header',
     color: 'from-teal-500 to-emerald-400'
   }
 };
@@ -113,6 +113,59 @@ export default function DocumentGenerator() {
   // Letterhead
   const [letterhead, setLetterhead] = useState('');
   const [customLetterhead, setCustomLetterhead] = useState(null);
+  const [letterheadImages, setLetterheadImages] = useState({});
+  
+  // Load letterhead images from .docx files
+  useEffect(() => {
+    const loadLetterheadImages = async () => {
+      const images = {};
+      for (const [key, config] of Object.entries(LETTERHEADS)) {
+        if (config.file) {
+          try {
+            const response = await fetch(config.file);
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              try {
+                const mammoth = await import('mammoth');
+                const result = await mammoth.convertToHtml({ arrayBuffer }, {
+                  convertImage: mammoth.images.imgElement((image) => {
+                    return image.read('base64').then((imageBuffer) => {
+                      return {
+                        src: `data:${image.contentType};base64,${imageBuffer}`
+                      };
+                    });
+                  })
+                });
+                // Extract images from HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(result.value, 'text/html');
+                const imgElements = doc.querySelectorAll('img');
+                if (imgElements.length > 0) {
+                  images[key] = Array.from(imgElements).map(img => img.src);
+                }
+              } catch (mammothError) {
+                console.error(`Error extracting images from ${key}:`, mammothError);
+                // Try to find corresponding image files
+                const imagePath = config.file.replace('.docx', '.png');
+                try {
+                  const imgResponse = await fetch(imagePath);
+                  if (imgResponse.ok) {
+                    images[key] = [imagePath];
+                  }
+                } catch (imgError) {
+                  console.error(`No image file found for ${key}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`Error loading letterhead ${key}:`, error);
+          }
+        }
+      }
+      setLetterheadImages(images);
+    };
+    loadLetterheadImages();
+  }, []);
   
   // Recipient
   const [recipientName, setRecipientName] = useState('');
@@ -1035,6 +1088,7 @@ export default function DocumentGenerator() {
             headerText={headerText}
             footerText={footerText}
             customLetterhead={customLetterhead}
+            letterheadImages={letterheadImages}
           />
         </div>
       </div>
@@ -1072,27 +1126,28 @@ export default function DocumentGenerator() {
               >
                 ← Back
               </button>
-              <DocumentPreview
-                ref={previewRef}
-                letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
-                recipientName={recipientName}
-                recipientTitle={recipientTitle}
-                recipientAddress={recipientAddress}
-                subjectLine={subjectLine}
-                documentType={documentType}
-                previewText={getPreviewText()}
-                fontSize={fontSize}
-                lineSpacing={lineSpacing}
-                fontFamily={fontFamily}
-                signatoryName={signatoryName}
-                signatoryTitle={signatoryTitle}
-                pageOrientation={pageOrientation}
-                pageMargins={pageMargins}
-                showPageNumbers={showPageNumbers}
-                headerText={headerText}
-                footerText={footerText}
-                customLetterhead={customLetterhead}
-              />
+          <DocumentPreview
+            ref={previewRef}
+            letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
+            recipientName={recipientName}
+            recipientTitle={recipientTitle}
+            recipientAddress={recipientAddress}
+            subjectLine={subjectLine}
+            documentType={documentType}
+            previewText={getPreviewText()}
+            fontSize={fontSize}
+            lineSpacing={lineSpacing}
+            fontFamily={fontFamily}
+            signatoryName={signatoryName}
+            signatoryTitle={signatoryTitle}
+            pageOrientation={pageOrientation}
+            pageMargins={pageMargins}
+            showPageNumbers={showPageNumbers}
+            headerText={headerText}
+            footerText={footerText}
+            customLetterhead={customLetterhead}
+            letterheadImages={letterheadImages}
+          />
             </motion.div>
           </motion.div>
         )}
@@ -1124,27 +1179,28 @@ export default function DocumentGenerator() {
                   ✕ Close (ESC)
                 </button>
               </div>
-              <DocumentPreview
-                ref={previewRef}
-                letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
-                recipientName={recipientName}
-                recipientTitle={recipientTitle}
-                recipientAddress={recipientAddress}
-                subjectLine={subjectLine}
-                documentType={documentType}
-                previewText={getPreviewText()}
-                fontSize={fontSize}
-                lineSpacing={lineSpacing}
-                fontFamily={fontFamily}
-                signatoryName={signatoryName}
-                signatoryTitle={signatoryTitle}
-                pageOrientation={pageOrientation}
-                pageMargins={pageMargins}
-                showPageNumbers={showPageNumbers}
-                headerText={headerText}
-                footerText={footerText}
-                customLetterhead={customLetterhead}
-              />
+          <DocumentPreview
+            ref={previewRef}
+            letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
+            recipientName={recipientName}
+            recipientTitle={recipientTitle}
+            recipientAddress={recipientAddress}
+            subjectLine={subjectLine}
+            documentType={documentType}
+            previewText={getPreviewText()}
+            fontSize={fontSize}
+            lineSpacing={lineSpacing}
+            fontFamily={fontFamily}
+            signatoryName={signatoryName}
+            signatoryTitle={signatoryTitle}
+            pageOrientation={pageOrientation}
+            pageMargins={pageMargins}
+            showPageNumbers={showPageNumbers}
+            headerText={headerText}
+            footerText={footerText}
+            customLetterhead={customLetterhead}
+            letterheadImages={letterheadImages}
+          />
             </motion.div>
           </motion.div>
         )}
@@ -1329,7 +1385,8 @@ const DocumentPreview = React.forwardRef(({
   showPageNumbers = false,
   headerText = '',
   footerText = '',
-  customLetterhead = null
+  customLetterhead = null,
+  letterheadImages = {}
 }, ref) => {
   const pageNumber = 1; // In a real implementation, this would track multiple pages
   
@@ -1370,40 +1427,55 @@ const DocumentPreview = React.forwardRef(({
             <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px', paddingTop: '1rem', marginTop: headerText ? '20px' : '0' }}>
               {customLetterhead && customLetterhead.type === 'image' ? (
                 <img src={customLetterhead.data} alt="Custom Letterhead" className="max-w-full h-auto mb-4" />
-              ) : letterhead && (
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="flex-1">
-                    <h1 
-                      className="text-4xl font-bold leading-tight mb-2"
-                      style={{
-                        background: letterhead.color === 'from-blue-500 to-cyan-400' 
-                          ? 'linear-gradient(to right, #3b82f6, #22d3ee)'
-                          : letterhead.color === 'from-teal-500 to-emerald-400'
-                          ? 'linear-gradient(to right, #14b8a6, #34d399)'
-                          : 'linear-gradient(to right, #6b7280, #9ca3af)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        color: letterhead.color === 'from-blue-500 to-cyan-400' 
-                          ? '#3b82f6'
-                          : letterhead.color === 'from-teal-500 to-emerald-400'
-                          ? '#14b8a6'
-                          : '#6b7280',
-                        display: 'inline-block',
-                        wordBreak: 'break-word',
-                        lineHeight: '1.1'
-                      }}
-                    >
-                      {letterhead.displayName || letterhead.name || 'Letterhead'}
-                    </h1>
-                    {letterhead.file && (
-                      <div className="text-xs text-gray-500 mt-2">
-                        Source: {letterhead.file.split('/').pop()}
-                      </div>
-                    )}
+              ) : letterhead && (() => {
+                // Find the letterhead key from the object
+                const letterheadKey = Object.keys(LETTERHEADS).find(key => 
+                  LETTERHEADS[key].file === letterhead.file || 
+                  LETTERHEADS[key].name === letterhead.name
+                );
+                const images = letterheadKey ? letterheadImages[letterheadKey] : null;
+                
+                return images && images.length > 0 ? (
+                  <div className="mb-4">
+                    {images.map((imgSrc, idx) => (
+                      <img key={idx} src={imgSrc} alt={`${letterhead.displayName || letterhead.name} Letterhead`} className="max-w-full h-auto mb-2" />
+                    ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="flex items-start gap-3 mb-2">
+                    <div className="flex-1">
+                      <h1 
+                        className="text-4xl font-bold leading-tight mb-2"
+                        style={{
+                          background: letterhead.color === 'from-blue-500 to-cyan-400' 
+                            ? 'linear-gradient(to right, #3b82f6, #22d3ee)'
+                            : letterhead.color === 'from-teal-500 to-emerald-400'
+                            ? 'linear-gradient(to right, #14b8a6, #34d399)'
+                            : 'linear-gradient(to right, #6b7280, #9ca3af)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          backgroundClip: 'text',
+                          color: letterhead.color === 'from-blue-500 to-cyan-400' 
+                            ? '#3b82f6'
+                            : letterhead.color === 'from-teal-500 to-emerald-400'
+                            ? '#14b8a6'
+                            : '#6b7280',
+                          display: 'inline-block',
+                          wordBreak: 'break-word',
+                          lineHeight: '1.1'
+                        }}
+                      >
+                        {letterhead.displayName || letterhead.name || 'Letterhead'}
+                      </h1>
+                      {letterhead.file && (
+                        <div className="text-xs text-gray-500 mt-2">
+                          Source: {letterhead.file.split('/').pop()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
