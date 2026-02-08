@@ -1445,7 +1445,7 @@ const DocumentPreview = React.forwardRef(({
 
           {/* Signature Section */}
           {(signatoryName || signatoryTitle) && (
-            <div className="mt-8 pt-6 border-t border-gray-300">
+            <div className="mt-8 pt-6">
               <div className="mb-4" style={{ fontSize: `${fontSize}px` }}>
                 Sincerely,
               </div>
