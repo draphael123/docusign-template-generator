@@ -609,16 +609,19 @@ export default function DocumentGenerator() {
                   className="p-8 h-full flex flex-col text-xs"
                   style={{ fontFamily: FONTS[selectedFont].family }}
                 >
-                  {/* Letterhead */}
-                  <div className="-mx-8 -mt-8 mb-4">
-                    <div className="overflow-hidden" style={{ maxHeight: '80px' }}>
-                      <img 
-                        src={LETTERHEADS[letterhead].image} 
-                        alt="Letterhead"
-                        className="w-full h-auto"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    </div>
+                  {/* Letterhead Header */}
+                  <div className="-mx-8 -mt-8 mb-6">
+                    <img 
+                      src={LETTERHEADS[letterhead].image} 
+                      alt="Letterhead Header"
+                      className="w-full"
+                      style={{ 
+                        height: '70px', 
+                        objectFit: 'cover', 
+                        objectPosition: 'top center' 
+                      }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                   </div>
 
                   {recipientName && (
@@ -652,15 +655,17 @@ export default function DocumentGenerator() {
 
                   {/* Footer */}
                   <div className="-mx-8 -mb-8 mt-auto">
-                    <div className="overflow-hidden" style={{ maxHeight: '50px' }}>
-                      <img 
-                        src={LETTERHEADS[letterhead].image} 
-                        alt="Footer"
-                        className="w-full h-auto"
-                        style={{ marginTop: '-87%', clipPath: 'inset(87% 0 0 0)' }}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    </div>
+                    <img 
+                      src={LETTERHEADS[letterhead].image} 
+                      alt="Letterhead Footer"
+                      className="w-full"
+                      style={{ 
+                        height: '40px', 
+                        objectFit: 'cover', 
+                        objectPosition: 'bottom center' 
+                      }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                   </div>
                 </div>
               </div>
