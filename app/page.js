@@ -308,12 +308,35 @@ export default function DocumentGenerator() {
       // Check if we need multiple pages
       const lineHeight = fontSize * 0.5;
       for (let i = 0; i < lines.length; i++) {
-        if (yPosition > 270) {
+        if (yPosition > 250) {
           pdf.addPage();
           yPosition = 20;
         }
         pdf.text(lines[i], 20, yPosition);
         yPosition += lineHeight;
+      }
+      
+      // Add signatory at the end (if not already in the text via placeholders)
+      if (signatoryName && !previewText.includes(signatoryName)) {
+        yPosition += 20; // Add spacing before signature
+        
+        if (yPosition > 250) {
+          pdf.addPage();
+          yPosition = 30;
+        }
+        
+        pdf.setFont(undefined, 'normal');
+        pdf.text('Sincerely,', 20, yPosition);
+        yPosition += 15;
+        
+        pdf.setFont(undefined, 'bold');
+        pdf.text(signatoryName, 20, yPosition);
+        yPosition += 6;
+        
+        if (signatoryTitle) {
+          pdf.setFont(undefined, 'normal');
+          pdf.text(signatoryTitle, 20, yPosition);
+        }
       }
       
       // Add footer image at the bottom of the page
@@ -691,6 +714,8 @@ export default function DocumentGenerator() {
             fontSize={fontSize}
             lineSpacing={lineSpacing}
             fontFamily={FONTS[selectedFont].family}
+            signatoryName={signatoryName}
+            signatoryTitle={signatoryTitle}
           />
         </div>
       </div>
@@ -740,6 +765,8 @@ export default function DocumentGenerator() {
                 fontSize={fontSize}
                 lineSpacing={lineSpacing}
                 fontFamily={FONTS[selectedFont].family}
+                signatoryName={signatoryName}
+                signatoryTitle={signatoryTitle}
               />
             </motion.div>
           </motion.div>
@@ -852,7 +879,9 @@ const DocumentPreview = React.forwardRef(({
   previewText,
   fontSize,
   lineSpacing,
-  fontFamily
+  fontFamily,
+  signatoryName,
+  signatoryTitle
 }, ref) => {
   return (
     <motion.div
@@ -913,7 +942,7 @@ const DocumentPreview = React.forwardRef(({
 
           {/* Document Body */}
           <div 
-            className="whitespace-pre-wrap flex-grow"
+            className="whitespace-pre-wrap"
             style={{
               fontSize: `${fontSize}px`,
               lineHeight: lineSpacing
@@ -921,6 +950,18 @@ const DocumentPreview = React.forwardRef(({
           >
             {previewText}
           </div>
+
+          {/* Signatory - show if not already in text */}
+          {signatoryName && !previewText.includes(signatoryName) && (
+            <div className="mt-8">
+              <div className="mb-4">Sincerely,</div>
+              <div className="font-semibold">{signatoryName}</div>
+              {signatoryTitle && <div className="text-gray-600">{signatoryTitle}</div>}
+            </div>
+          )}
+
+          {/* Spacer to push footer down */}
+          <div className="flex-grow"></div>
 
           {/* Footer */}
           <div className="-mx-12 -mb-12 mt-auto">
