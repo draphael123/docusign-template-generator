@@ -3,60 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Document Templates with placeholders
-const TEMPLATES = {
-  'None': '',
-  'Letter of Recommendation': `Dear {{Recipient_Name}},
-
-I am writing to recommend {{Subject_Name}} for {{Position}}. Having worked with them for {{Duration}}, I can confidently attest to their exceptional skills and character.
-
-{{Subject_Name}} has consistently demonstrated outstanding performance in {{Key_Area}}. Their ability to {{Skill_Description}} has been invaluable to our team.
-
-I highly recommend {{Subject_Name}} without reservation. They would be an excellent addition to any organization.
-
-Sincerely,
-{{Signatory_Name}}
-{{Signatory_Title}}`,
-  
-  'Employment Verification': `To Whom It May Concern,
-
-This letter is to verify that {{Subject_Name}} has been employed with {{Company_Name}} from {{Start_Date}} to {{End_Date}} in the position of {{Position}}.
-
-During their employment, {{Subject_Name}} performed their duties with professionalism and dedication. Their responsibilities included {{Responsibilities}}.
-
-Should you require any additional information, please do not hesitate to contact our office.
-
-Sincerely,
-{{Signatory_Name}}
-{{Signatory_Title}}`,
-  
-  'Business Proposal': `Dear {{Recipient_Name}},
-
-We are pleased to submit this proposal for {{Project_Name}}. Our team at {{Company_Name}} specializes in {{Service_Area}} and has a proven track record of delivering exceptional results.
-
-Project Scope:
-{{Project_Description}}
-
-Timeline: {{Timeline}}
-Budget: {{Budget}}
-
-We look forward to the opportunity to work with you on this exciting project.
-
-Best regards,
-{{Signatory_Name}}
-{{Signatory_Title}}`,
-  
-  'Cover Letter': `Dear {{Recipient_Name}},
-
-I am writing to express my strong interest in the {{Position}} position at {{Company_Name}}. With {{Years_Experience}} years of experience in {{Industry}}, I am confident in my ability to contribute to your team.
-
-My background in {{Skills_Area}} has equipped me with the skills necessary to excel in this role. I am particularly drawn to {{Company_Name}} because of {{Reason}}.
-
-I would welcome the opportunity to discuss how my experience and skills align with your needs.
-
-Sincerely,
-{{Signatory_Name}}`
-};
 
 // Letterhead configurations - images in public/headers/
 const LETTERHEADS = {
@@ -120,13 +66,12 @@ const FONTS = {
 };
 
 export default function DocumentGenerator() {
-  const [documentType, setDocumentType] = useState('None');
   const [letterhead, setLetterhead] = useState('TRT');
   const [recipientName, setRecipientName] = useState('');
   const [recipientTitle, setRecipientTitle] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [subjectLine, setSubjectLine] = useState('');
-  const [documentBody, setDocumentBody] = useState(TEMPLATES[documentType]);
+  const [documentBody, setDocumentBody] = useState('');
   const [selectedSignatory, setSelectedSignatory] = useState('lindsay');
   const [signatoryName, setSignatoryName] = useState(SIGNATORIES['lindsay'].name);
   const [signatoryTitle, setSignatoryTitle] = useState(SIGNATORIES['lindsay'].title);
@@ -138,10 +83,6 @@ export default function DocumentGenerator() {
   
   const previewRef = useRef(null);
 
-  // Update document body when template changes
-  useEffect(() => {
-    setDocumentBody(TEMPLATES[documentType]);
-  }, [documentType]);
 
   // Replace placeholders in the document
   const getPreviewText = () => {
@@ -159,13 +100,12 @@ export default function DocumentGenerator() {
 
   // Calculate progress
   const progress = {
-    documentTypeSelected: documentType !== '',
     signatorySelected: signatoryName !== '' && signatoryTitle !== '',
-    documentFilled: documentType === 'None' ? documentBody.trim() !== '' : (documentBody.trim() !== '' && recipientName !== '')
+    documentFilled: documentBody.trim() !== ''
   };
 
   const allComplete = Object.values(progress).every(v => v);
-  const completionPercentage = (Object.values(progress).filter(v => v).length / 3) * 100;
+  const completionPercentage = (Object.values(progress).filter(v => v).length / 2) * 100;
 
   // Insert placeholder at cursor
   const insertPlaceholder = (placeholder) => {
@@ -317,7 +257,7 @@ export default function DocumentGenerator() {
       }
       
       // Add signatory at the end for "None" template or if not in text
-      if (signatoryName && (documentType === 'None' || !previewText.includes(signatoryName))) {
+      if (signatoryName && !previewText.includes(signatoryName)) {
         yPosition += 20; // Add spacing before signature
         
         if (yPosition > 250) {
@@ -349,8 +289,7 @@ export default function DocumentGenerator() {
         console.log('Footer image load failed');
       }
       
-      const fileName = documentType === 'None' ? 'Document' : documentType.replace(/\s+/g, '_');
-      pdf.save(`${fileName}.pdf`);
+      pdf.save('Document.pdf');
     } catch (error) {
       console.error('PDF generation error:', error);
       alert('PDF generation failed. Please try using the Word export instead.');
@@ -371,7 +310,7 @@ export default function DocumentGenerator() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${documentType.replace(/\s+/g, '_')}.doc`;
+    link.download = 'Document.doc';
     link.click();
   };
 
@@ -393,27 +332,6 @@ export default function DocumentGenerator() {
         {/* Left Column - Controls */}
         <div className="space-y-6 h-fit">
           
-          {/* Document Type Selection */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
-          >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">📄</span>
-              DOCUMENT TYPE
-            </h2>
-            <select 
-              value={documentType}
-              onChange={(e) => setDocumentType(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] focus:border-transparent transition-all"
-            >
-              {Object.keys(TEMPLATES).map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </motion.div>
-
           {/* Letterhead Selection */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
@@ -709,7 +627,6 @@ export default function DocumentGenerator() {
             recipientTitle={recipientTitle}
             recipientAddress={recipientAddress}
             subjectLine={subjectLine}
-            documentType={documentType}
             previewText={getPreviewText()}
             fontSize={fontSize}
             lineSpacing={lineSpacing}
@@ -760,7 +677,6 @@ export default function DocumentGenerator() {
                 recipientTitle={recipientTitle}
                 recipientAddress={recipientAddress}
                 subjectLine={subjectLine}
-                documentType={documentType}
                 previewText={getPreviewText()}
                 fontSize={fontSize}
                 lineSpacing={lineSpacing}
@@ -799,16 +715,6 @@ export default function DocumentGenerator() {
 
           {/* Checklist */}
           <div className="flex flex-wrap gap-4 mb-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                progress.documentTypeSelected ? 'bg-green-500' : 'bg-gray-700'
-              }`}>
-                {progress.documentTypeSelected && '✓'}
-              </div>
-              <span className={progress.documentTypeSelected ? 'text-green-400' : 'text-gray-500'}>
-                Document type selected
-              </span>
-            </div>
             <div className="flex items-center gap-2">
               <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                 progress.signatorySelected ? 'bg-green-500' : 'bg-gray-700'
@@ -875,7 +781,6 @@ const DocumentPreview = React.forwardRef(({
   recipientTitle, 
   recipientAddress,
   subjectLine,
-  documentType,
   previewText,
   fontSize,
   lineSpacing,
@@ -951,8 +856,8 @@ const DocumentPreview = React.forwardRef(({
             {previewText}
           </div>
 
-          {/* Signatory - always show for None template, or if not in text */}
-          {signatoryName && (documentType === 'None' || !previewText.includes(signatoryName)) && (
+          {/* Signatory - show if not already in text */}
+          {signatoryName && !previewText.includes(signatoryName) && (
             <div className="mt-8">
               <div className="mb-4">Sincerely,</div>
               <div className="font-semibold">{signatoryName}</div>
