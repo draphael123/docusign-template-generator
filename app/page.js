@@ -1397,18 +1397,26 @@ const DocumentPreview = React.forwardRef(({
             marginTop: '0'
           }}
         >
-          {/* Header */}
-          {headerText && (
-            <div className="absolute top-0 left-0 right-0 text-center text-xs text-gray-500 border-b border-gray-200 pb-1" style={{ paddingTop: `${pageMargins.top - 20}px` }}>
-              {headerText}
-            </div>
-          )}
-
-          {/* Letterhead */}
+          {/* Letterhead as Full-Page Background */}
           {(letterhead || customLetterhead) && (
-            <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px', paddingTop: '1rem', marginTop: headerText ? '20px' : '0' }}>
+            <div 
+              className="absolute inset-0 z-0"
+              style={{
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                margin: 0,
+                padding: 0
+              }}
+            >
               {customLetterhead && customLetterhead.type === 'image' ? (
-                <img src={customLetterhead.data} alt="Custom Letterhead" className="max-w-full h-auto mb-4" />
+                <img 
+                  src={customLetterhead.data} 
+                  alt="Custom Letterhead" 
+                  className="w-full h-full object-cover"
+                  style={{ objectFit: 'cover', objectPosition: 'top' }}
+                />
               ) : letterhead && (() => {
                 // Find the letterhead key from the object
                 const letterheadKey = Object.keys(LETTERHEADS).find(key => 
@@ -1420,126 +1428,113 @@ const DocumentPreview = React.forwardRef(({
                 if (letterheadContent) {
                   if (letterheadContent.type === 'images' && letterheadContent.data && letterheadContent.data.length > 0) {
                     return (
-                      <div className="mb-4">
+                      <div className="w-full h-full">
                         {letterheadContent.data.map((imgSrc, idx) => (
-                          <img key={idx} src={imgSrc} alt={`${letterhead.displayName || letterhead.name} Letterhead`} className="max-w-full h-auto mb-2" />
+                          <img 
+                            key={idx} 
+                            src={imgSrc} 
+                            alt={`${letterhead.displayName || letterhead.name} Letterhead`} 
+                            className="w-full h-full object-cover"
+                            style={{ objectFit: 'cover', objectPosition: 'top' }}
+                          />
                         ))}
                       </div>
                     );
                   } else if (letterheadContent.type === 'html' && letterheadContent.data) {
                     return (
                       <div 
-                        className="mb-4 letterhead-content"
+                        className="w-full h-full letterhead-content"
+                        style={{ 
+                          background: 'white',
+                          overflow: 'hidden'
+                        }}
                         dangerouslySetInnerHTML={{ __html: letterheadContent.data }}
                       />
                     );
                   }
                 }
                 
-                // Fallback to text display
-                return (
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className="flex-1">
-                      <h1 
-                        className="text-4xl font-bold leading-tight mb-2"
-                        style={{
-                          background: letterhead.color === 'from-blue-500 to-cyan-400' 
-                            ? 'linear-gradient(to right, #3b82f6, #22d3ee)'
-                            : letterhead.color === 'from-teal-500 to-emerald-400'
-                            ? 'linear-gradient(to right, #14b8a6, #34d399)'
-                            : 'linear-gradient(to right, #6b7280, #9ca3af)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text',
-                          color: letterhead.color === 'from-blue-500 to-cyan-400' 
-                            ? '#3b82f6'
-                            : letterhead.color === 'from-teal-500 to-emerald-400'
-                            ? '#14b8a6'
-                            : '#6b7280',
-                          display: 'inline-block',
-                          wordBreak: 'break-word',
-                          lineHeight: '1.1'
-                        }}
-                      >
-                        {letterhead.displayName || letterhead.name || 'Letterhead'}
-                      </h1>
-                      {letterhead.file && (
-                        <div className="text-xs text-gray-500 mt-2">
-                          Source: {letterhead.file.split('/').pop()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
+                // Fallback to text display (shouldn't happen if letterhead is properly loaded)
+                return null;
               })()}
             </div>
           )}
 
-          {/* Date */}
-          <div className="text-right mb-6 text-sm text-gray-600">
-            {new Date().toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </div>
-
-          {/* Recipient */}
-          {recipientName && (
-            <div className="mb-6 text-sm">
-              <div className="font-semibold">{recipientName}</div>
-              {recipientTitle && <div className="text-gray-600">{recipientTitle}</div>}
-              {recipientAddress && <div className="text-gray-600">{recipientAddress}</div>}
+          {/* Header */}
+          {headerText && (
+            <div className="absolute top-0 left-0 right-0 text-center text-xs text-gray-500 border-b border-gray-200 pb-1 z-10" style={{ paddingTop: `${pageMargins.top - 20}px` }}>
+              {headerText}
             </div>
           )}
 
-          {/* Subject Line */}
-          {subjectLine && (
-            <div className="mb-6 font-semibold">
-              Re: {subjectLine}
+          {/* Document Content - Positioned above letterhead */}
+          <div className="relative z-10">
+            {/* Date */}
+            <div className="text-right mb-6 text-sm text-gray-600">
+              {new Date().toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
             </div>
-          )}
 
-          {/* Document Body */}
-          <div 
-            className="whitespace-pre-wrap mb-8"
-            style={{
-              fontSize: `${fontSize}px`,
-              lineHeight: lineSpacing,
-              fontFamily: fontFamily || "'Libre Baskerville', serif"
-            }}
-            dangerouslySetInnerHTML={{ __html: previewText.replace(/\n/g, '<br />') }}
-          />
-
-          {/* Signature Section */}
-          {(signatoryName || signatoryTitle) && (
-            <div className="mt-8 pt-6">
-              <div className="mb-4" style={{ fontSize: `${fontSize}px` }}>
-                Sincerely,
+            {/* Recipient */}
+            {recipientName && (
+              <div className="mb-6 text-sm">
+                <div className="font-semibold">{recipientName}</div>
+                {recipientTitle && <div className="text-gray-600">{recipientTitle}</div>}
+                {recipientAddress && <div className="text-gray-600">{recipientAddress}</div>}
               </div>
-              {signatoryName && (
-                <div className="font-semibold mb-1" style={{ fontSize: `${fontSize}px` }}>
-                  {signatoryName}
+            )}
+
+            {/* Subject Line */}
+            {subjectLine && (
+              <div className="mb-6 font-semibold">
+                Re: {subjectLine}
+              </div>
+            )}
+
+            {/* Document Body */}
+            <div 
+              className="whitespace-pre-wrap mb-8"
+              style={{
+                fontSize: `${fontSize}px`,
+                lineHeight: lineSpacing,
+                fontFamily: fontFamily || "'Libre Baskerville', serif"
+              }}
+              dangerouslySetInnerHTML={{ __html: previewText.replace(/\n/g, '<br />') }}
+            />
+
+            {/* Signature Section */}
+            {(signatoryName || signatoryTitle) && (
+              <div className="mt-8 pt-6">
+                <div className="mb-4" style={{ fontSize: `${fontSize}px` }}>
+                  Sincerely,
                 </div>
-              )}
-              {signatoryTitle && (
-                <div className="text-gray-600" style={{ fontSize: `${Math.max(fontSize - 1, 12)}px` }}>
-                  {signatoryTitle}
-                </div>
-              )}
-            </div>
-          )}
+                {signatoryName && (
+                  <div className="font-semibold mb-1" style={{ fontSize: `${fontSize}px` }}>
+                    {signatoryName}
+                  </div>
+                )}
+                {signatoryTitle && (
+                  <div className="text-gray-600" style={{ fontSize: `${Math.max(fontSize - 1, 12)}px` }}>
+                    {signatoryTitle}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Footer */}
           {footerText && (
-            <div className="absolute bottom-0 left-0 right-0 text-center text-xs text-gray-500 border-t border-gray-200 pt-1" style={{ paddingBottom: `${pageMargins.bottom - 20}px` }}>
+            <div className="absolute bottom-0 left-0 right-0 text-center text-xs text-gray-500 border-t border-gray-200 pt-1 z-10" style={{ paddingBottom: `${pageMargins.bottom - 20}px` }}>
               {footerText}
             </div>
           )}
 
           {/* Page Numbers */}
           {showPageNumbers && (
-            <div className="absolute bottom-0 right-0 text-xs text-gray-500" style={{ paddingBottom: `${pageMargins.bottom - 20}px`, paddingRight: `${pageMargins.right}px` }}>
+            <div className="absolute bottom-0 right-0 text-xs text-gray-500 z-10" style={{ paddingBottom: `${pageMargins.bottom - 20}px`, paddingRight: `${pageMargins.right}px` }}>
               1
             </div>
           )}
