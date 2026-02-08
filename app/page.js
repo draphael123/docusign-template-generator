@@ -103,37 +103,285 @@ const FONTS = {
 };
 
 export default function DocumentGenerator() {
+  // Theme
+  const [darkMode, setDarkMode] = useState(true);
+  
+  // Document metadata
+  const [documentName, setDocumentName] = useState('');
   const [documentType, setDocumentType] = useState('');
+  
+  // Letterhead
   const [letterhead, setLetterhead] = useState('');
+  const [customLetterhead, setCustomLetterhead] = useState(null);
+  
+  // Recipient
   const [recipientName, setRecipientName] = useState('');
   const [recipientTitle, setRecipientTitle] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [subjectLine, setSubjectLine] = useState('');
+  
+  // Document content
   const [documentBody, setDocumentBody] = useState('');
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // Signatory
   const [selectedSigner, setSelectedSigner] = useState('');
   const [signatoryName, setSignatoryName] = useState('');
   const [signatoryTitle, setSignatoryTitle] = useState('');
   const [signatureType, setSignatureType] = useState('Decent Standlee');
+  
+  // Formatting
   const [fontSize, setFontSize] = useState(14);
   const [lineSpacing, setLineSpacing] = useState(1.5);
   const [fontFamily, setFontFamily] = useState("'Libre Baskerville', serif");
-  const [showPreview, setShowPreview] = useState(false);
+  const [pageOrientation, setPageOrientation] = useState('portrait');
+  const [pageMargins, setPageMargins] = useState({ top: 48, right: 48, bottom: 48, left: 48 });
+  const [showPageNumbers, setShowPageNumbers] = useState(false);
+  const [headerText, setHeaderText] = useState('');
+  const [footerText, setFooterText] = useState('');
   
+  // UI State
+  const [showPreview, setShowPreview] = useState(false);
+  const [showFullScreen, setShowFullScreen] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState([]);
+  const [customVariables, setCustomVariables] = useState([]);
+  const [insertedImages, setInsertedImages] = useState([]);
+  
+  // Refs
   const previewRef = useRef(null);
   const fileInputRef = useRef(null);
+  const letterheadInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('documentGenerator_state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.documentName) setDocumentName(state.documentName);
+        if (state.documentBody) setDocumentBody(state.documentBody);
+        if (state.recipientName) setRecipientName(state.recipientName);
+        if (state.signatoryName) setSignatoryName(state.signatoryName);
+        if (state.signatoryTitle) setSignatoryTitle(state.signatoryTitle);
+        if (state.fontSize) setFontSize(state.fontSize);
+        if (state.fontFamily) setFontFamily(state.fontFamily);
+      } catch (e) {
+        console.error('Failed to load saved state:', e);
+      }
+    }
+    
+    // Load saved templates
+    const templates = localStorage.getItem('savedTemplates');
+    if (templates) {
+      try {
+        setSavedTemplates(JSON.parse(templates));
+      } catch (e) {
+        console.error('Failed to load templates:', e);
+      }
+    }
+    
+    // Load custom variables
+    const variables = localStorage.getItem('customVariables');
+    if (variables) {
+      try {
+        setCustomVariables(JSON.parse(variables));
+      } catch (e) {
+        console.error('Failed to load variables:', e);
+      }
+    }
+  }, []);
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    const state = {
+      documentName,
+      documentBody,
+      recipientName,
+      signatoryName,
+      signatoryTitle,
+      fontSize,
+      fontFamily
+    };
+    localStorage.setItem('documentGenerator_state', JSON.stringify(state));
+  }, [documentName, documentBody, recipientName, signatoryName, signatoryTitle, fontSize, fontFamily]);
+
+  // History management for undo/redo
+  const addToHistory = (newBody) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newBody);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setDocumentBody(history[historyIndex - 1]);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setDocumentBody(history[historyIndex + 1]);
+    }
+  };
 
   // Update document body when template changes
   useEffect(() => {
     if (documentType && TEMPLATES[documentType]) {
-      setDocumentBody(TEMPLATES[documentType]);
+      const newBody = TEMPLATES[documentType];
+      setDocumentBody(newBody);
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newBody);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
     } else if (!documentType) {
       setDocumentBody('');
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push('');
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
     }
   }, [documentType]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveDocument();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (historyIndex > 0) {
+          setHistoryIndex(historyIndex - 1);
+          setDocumentBody(history[historyIndex - 1]);
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        if (historyIndex < history.length - 1) {
+          setHistoryIndex(historyIndex + 1);
+          setDocumentBody(history[historyIndex + 1]);
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        duplicateDocument();
+      }
+      if (e.key === 'F11') {
+        e.preventDefault();
+        setShowFullScreen(prev => !prev);
+      }
+      if (e.key === 'Escape' && showFullScreen) {
+        setShowFullScreen(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyIndex, history, showFullScreen]);
+
+  // Helper functions
+  const saveDocument = () => {
+    const doc = {
+      name: documentName || 'Untitled Document',
+      body: documentBody,
+      recipientName,
+      recipientTitle,
+      recipientAddress,
+      subjectLine,
+      signatoryName,
+      signatoryTitle,
+      letterhead,
+      fontSize,
+      lineSpacing,
+      fontFamily,
+      timestamp: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${documentName || 'document'}.json`;
+    link.click();
+  };
+
+  const duplicateDocument = () => {
+    setDocumentName(`${documentName || 'Document'} (Copy)`);
+    // All other state is already in place, just update the name
+  };
+
+  const saveTemplate = () => {
+    const template = {
+      name: prompt('Enter template name:') || 'Untitled Template',
+      body: documentBody,
+      timestamp: new Date().toISOString()
+    };
+    const newTemplates = [...savedTemplates, template];
+    setSavedTemplates(newTemplates);
+    localStorage.setItem('savedTemplates', JSON.stringify(newTemplates));
+    alert('Template saved!');
+  };
+
+  const loadTemplate = (template) => {
+    setDocumentBody(template.body);
+    addToHistory(template.body);
+  };
+
+  const addCustomVariable = () => {
+    const name = prompt('Enter variable name (without {{}}):');
+    if (name) {
+      const newVars = [...customVariables, { name: name.trim(), value: '' }];
+      setCustomVariables(newVars);
+      localStorage.setItem('customVariables', JSON.stringify(newVars));
+    }
+  };
+
+  const handleImageInsert = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imgData = event.target.result;
+        const imgId = `img_${Date.now()}`;
+        setInsertedImages([...insertedImages, { id: imgId, data: imgData }]);
+        const textarea = document.getElementById('documentBody');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = documentBody;
+        const before = text.substring(0, start);
+        const after = text.substring(end);
+        const newText = before + `[IMAGE:${imgId}]` + after;
+        setDocumentBody(newText);
+        addToHistory(newText);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCustomLetterhead = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setCustomLetterhead({ type: 'image', data: event.target.result });
+        };
+        reader.readAsDataURL(file);
+      } else if (file.name.endsWith('.pdf')) {
+        setCustomLetterhead({ type: 'pdf', file: file });
+      }
+    }
+  };
 
   // Replace placeholders in the document
   const getPreviewText = () => {
     let text = documentBody;
+    // Replace standard placeholders
     text = text.replace(/\{\{Recipient_Name\}\}/g, recipientName || '{{Recipient_Name}}');
     text = text.replace(/\{\{Signatory_Name\}\}/g, signatoryName || '{{Signatory_Name}}');
     text = text.replace(/\{\{Signatory_Title\}\}/g, signatoryTitle || '{{Signatory_Title}}');
@@ -142,6 +390,18 @@ export default function DocumentGenerator() {
       month: 'long', 
       day: 'numeric' 
     }));
+    
+    // Replace custom variables
+    customVariables.forEach(variable => {
+      const regex = new RegExp(`\\{\\{${variable.name}\\}\\}`, 'g');
+      text = text.replace(regex, variable.value || `{{${variable.name}}}`);
+    });
+    
+    // Replace image placeholders with actual images
+    insertedImages.forEach(img => {
+      text = text.replace(`[IMAGE:${img.id}]`, `<img src="${img.data}" alt="Inserted image" style="max-width: 100%; height: auto;" />`);
+    });
+    
     return text;
   };
 
@@ -228,7 +488,7 @@ export default function DocumentGenerator() {
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF(pageOrientation === 'landscape' ? 'l' : 'p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
@@ -238,16 +498,78 @@ export default function DocumentGenerator() {
       const imgY = 0;
 
       pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      pdf.save(`${documentType.replace(/\s+/g, '_')}.pdf`);
+      pdf.save(`${documentName || documentType || 'document'}.pdf`.replace(/\s+/g, '_'));
     } catch (error) {
       console.error('PDF generation error:', error);
       alert('PDF generation failed. Please try again.');
     }
   };
 
+  // Download HTML
+  const downloadHTML = () => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${documentName || 'Document'}</title>
+  <style>
+    body { font-family: ${fontFamily}; font-size: ${fontSize}px; line-height: ${lineSpacing}; padding: 48px; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  ${previewRef.current ? previewRef.current.innerHTML : ''}
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${documentName || 'document'}.html`.replace(/\s+/g, '_');
+    link.click();
+  };
+
+  // Download Plain Text
+  const downloadText = () => {
+    const text = getPreviewText().replace(/<[^>]*>/g, ''); // Strip HTML tags
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${documentName || 'document'}.txt`.replace(/\s+/g, '_');
+    link.click();
+  };
+
+  // Print document
+  const printDocument = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow && previewRef.current) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${documentName || 'Document'}</title>
+            <style>
+              body { font-family: ${fontFamily}; font-size: ${fontSize}px; line-height: ${lineSpacing}; padding: 48px; }
+              @media print { @page { margin: 1in; } }
+            </style>
+          </head>
+          <body>${previewRef.current.innerHTML}</body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    } else {
+      window.print();
+    }
+  };
+
   // Download Word
   const downloadWord = () => {
-    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Document</title></head><body>`;
+    const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${documentName || 'Document'}</title></head><body>`;
     const footer = '</body></html>';
     const content = previewRef.current.innerHTML;
     const html = header + content + footer;
@@ -259,22 +581,51 @@ export default function DocumentGenerator() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${documentType.replace(/\s+/g, '_')}.doc`;
+    link.download = `${documentName || documentType || 'document'}.doc`.replace(/\s+/g, '_');
     link.click();
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-gray-100 p-4 md:p-8">
+    <div className={`min-h-screen ${darkMode ? 'bg-[#121212] text-gray-100' : 'bg-gray-50 text-gray-900'} p-4 md:p-8 transition-colors`}>
       {/* Header */}
       <motion.div 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-8"
       >
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-coral-500 to-orange-400 bg-clip-text text-transparent mb-2">
-          Document Generator
-        </h1>
-        <p className="text-gray-400">Create professional documents with ease</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1"></div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-coral-500 to-orange-400 bg-clip-text text-transparent">
+            Document Generator
+          </h1>
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`}
+              title="Toggle theme"
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
+        </div>
+        <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Create professional documents with ease</p>
+      </motion.div>
+
+      {/* Document Name Field */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-7xl mx-auto mb-6"
+      >
+        <div className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-4 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-xl`}>
+          <input
+            type="text"
+            placeholder="Document Name (optional)"
+            value={documentName}
+            onChange={(e) => setDocumentName(e.target.value)}
+            className={`w-full bg-transparent border-none outline-none text-lg font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'} placeholder:${darkMode ? 'text-gray-500' : 'text-gray-400'}`}
+          />
+        </div>
       </motion.div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -286,28 +637,47 @@ export default function DocumentGenerator() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
+            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
           >
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="text-2xl">🏢</span>
               LETTERHEAD
             </h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mb-3">
               {Object.keys(LETTERHEADS).map(type => (
                 <button
                   key={type}
-                  onClick={() => setLetterhead(type)}
+                  onClick={() => {
+                    setLetterhead(type);
+                    setCustomLetterhead(null);
+                  }}
                   className={`p-3 rounded-lg border-2 transition-all ${
-                    letterhead === type 
+                    letterhead === type && !customLetterhead
                       ? 'border-coral-500 bg-coral-500/10' 
-                      : 'border-gray-700 hover:border-gray-600'
+                      : darkMode ? 'border-gray-700 hover:border-gray-600' : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
                   <div className="text-xs font-medium">{LETTERHEADS[type].displayName || type}</div>
-                  <div className="text-[10px] text-gray-400 mt-1">.docx</div>
+                  <div className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>.docx</div>
                 </button>
               ))}
             </div>
+            <label className={`block w-full p-3 rounded-lg border-2 border-dashed ${darkMode ? 'border-gray-700 hover:border-gray-600' : 'border-gray-300 hover:border-gray-400'} cursor-pointer transition-colors text-center text-sm`}>
+              📤 Upload Custom Letterhead (Image/PDF)
+              <input
+                ref={letterheadInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleCustomLetterhead}
+                className="hidden"
+              />
+            </label>
+            {customLetterhead && (
+              <div className="mt-3 p-2 bg-green-500/10 border border-green-500/50 rounded text-xs text-green-400">
+                ✓ Custom letterhead loaded
+                <button onClick={() => setCustomLetterhead(null)} className="ml-2 text-red-400 hover:text-red-300">Remove</button>
+              </div>
+            )}
           </motion.div>
 
           {/* Recipient Details */}
@@ -328,14 +698,14 @@ export default function DocumentGenerator() {
                   placeholder="Name"
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
-                  className="flex-1 bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
+                  className={`flex-1 ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all`}
                 />
                 <input
                   type="text"
                   placeholder="Title"
                   value={recipientTitle}
                   onChange={(e) => setRecipientTitle(e.target.value)}
-                  className="flex-1 bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
+                  className={`flex-1 ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all`}
                 />
               </div>
               <input
@@ -343,14 +713,14 @@ export default function DocumentGenerator() {
                 placeholder="Address (123 Example Ave, City, State 12345)"
                 value={recipientAddress}
                 onChange={(e) => setRecipientAddress(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
+                className={`w-full ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all`}
               />
               <input
                 type="text"
                 placeholder="Subject Line (optional)"
                 value={subjectLine}
                 onChange={(e) => setSubjectLine(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all"
+                className={`w-full ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all`}
               />
             </div>
           </motion.div>
@@ -388,8 +758,8 @@ export default function DocumentGenerator() {
               </div>
 
               {/* Signer Selection */}
-              <div className="pt-3 border-t border-gray-700">
-                <label className="block text-sm text-gray-400 mb-2">Select Signer</label>
+              <div className={`pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+                <label className={`block text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Select Signer</label>
                 <select
                   value={selectedSigner}
                   onChange={(e) => {
@@ -415,7 +785,7 @@ export default function DocumentGenerator() {
               </div>
 
               {/* Signatory Details */}
-              <div className="space-y-3 pt-3 border-t border-gray-700">
+              <div className={`space-y-3 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
                 <input
                   type="text"
                   placeholder="Signatory Name"
@@ -454,7 +824,7 @@ export default function DocumentGenerator() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">Font Family</label>
+                <label className={`block text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Font Family</label>
                 <select
                   value={fontFamily}
                   onChange={(e) => setFontFamily(e.target.value)}
@@ -470,7 +840,7 @@ export default function DocumentGenerator() {
 
               <div>
                 <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Font Size: {fontSize}pt</span>
+                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Font Size: {fontSize}pt</span>
                 </label>
                 <input
                   type="range"
@@ -484,7 +854,7 @@ export default function DocumentGenerator() {
               
               <div>
                 <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-400">Line Spacing: {lineSpacing}</span>
+                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Line Spacing: {lineSpacing}</span>
                 </label>
                 <input
                   type="range"
@@ -504,15 +874,35 @@ export default function DocumentGenerator() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5 }}
-            className="backdrop-blur-xl bg-white/5 rounded-2xl p-6 border border-white/10 shadow-2xl"
+            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
           >
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="text-2xl">📝</span>
-              DOCUMENT BODY
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-lg font-semibold flex items-center gap-2 ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                <span className="text-2xl">📝</span>
+                DOCUMENT BODY
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className={`p-2 rounded ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  title="Undo (Ctrl+Z)"
+                >
+                  ↶
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className={`p-2 rounded ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  title="Redo (Ctrl+Y)"
+                >
+                  ↷
+                </button>
+              </div>
+            </div>
             
             {/* Toolbar */}
-            <div className="flex flex-wrap gap-2 mb-3 p-3 bg-[#1a1a1a] rounded-lg border border-gray-700">
+            <div className={`flex flex-wrap gap-2 mb-3 p-3 ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-gray-100 border-gray-300'} rounded-lg border`}>
               <label className="px-3 py-1.5 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/50 rounded text-xs transition-colors cursor-pointer">
                 📥 Import
                 <input
@@ -520,6 +910,16 @@ export default function DocumentGenerator() {
                   type="file"
                   accept=".txt,.docx,.doc"
                   onChange={handleFileImport}
+                  className="hidden"
+                />
+              </label>
+              <label className="px-3 py-1.5 bg-pink-600/20 hover:bg-pink-600/30 border border-pink-500/50 rounded text-xs transition-colors cursor-pointer">
+                🖼️ Image
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageInsert}
                   className="hidden"
                 />
               </label>
@@ -551,19 +951,232 @@ export default function DocumentGenerator() {
               >
                 🏢 Company
               </button>
+              {customVariables.map((variable, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => insertPlaceholder(`{{${variable.name}}}`)}
+                  className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/50 rounded text-xs transition-colors"
+                  title={`Insert ${variable.name}`}
+                >
+                  {variable.name}
+                </button>
+              ))}
             </div>
 
             <textarea
               id="documentBody"
               value={documentBody}
-              onChange={(e) => setDocumentBody(e.target.value)}
-              className="w-full h-64 bg-[#1a1a1a] border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all font-mono text-sm resize-none"
+              onChange={(e) => {
+                const newText = e.target.value;
+                setDocumentBody(newText);
+                const newHistory = history.slice(0, historyIndex + 1);
+                newHistory.push(newText);
+                setHistory(newHistory);
+                setHistoryIndex(newHistory.length - 1);
+              }}
+              spellCheck={true}
+              className={`w-full h-64 ${darkMode ? 'bg-[#1a1a1a] border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all font-mono text-sm resize-none`}
               placeholder="Enter your document text here, or click Import to upload a .txt or .docx file..."
             />
             
-            <p className="text-xs text-gray-500 mt-2">
+            <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
               💡 Use placeholders like {`{{Recipient_Name}}`} for dynamic content, or import a .txt or .docx file
             </p>
+          </motion.div>
+
+          {/* Template Management */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.6 }}
+            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <span className="text-2xl">📚</span>
+                TEMPLATES
+              </h2>
+              <button
+                onClick={saveTemplate}
+                className={`px-3 py-1.5 text-xs rounded ${darkMode ? 'bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50' : 'bg-blue-100 hover:bg-blue-200 border border-blue-300'} transition-colors`}
+              >
+                💾 Save
+              </button>
+            </div>
+            {savedTemplates.length > 0 && (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {savedTemplates.map((template, idx) => (
+                  <div key={idx} className={`flex items-center justify-between p-2 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                    <span className="text-sm">{template.name}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => loadTemplate(template)}
+                        className="text-xs px-2 py-1 bg-green-600/20 hover:bg-green-600/30 rounded"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => {
+                          const newTemplates = savedTemplates.filter((_, i) => i !== idx);
+                          setSavedTemplates(newTemplates);
+                          localStorage.setItem('savedTemplates', JSON.stringify(newTemplates));
+                        }}
+                        className="text-xs px-2 py-1 bg-red-600/20 hover:bg-red-600/30 rounded"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Variable Management */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.7 }}
+            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <span className="text-2xl">🔤</span>
+                CUSTOM VARIABLES
+              </h2>
+              <button
+                onClick={addCustomVariable}
+                className={`px-3 py-1.5 text-xs rounded ${darkMode ? 'bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/50' : 'bg-purple-100 hover:bg-purple-200 border border-purple-300'} transition-colors`}
+              >
+                + Add
+              </button>
+            </div>
+            {customVariables.length > 0 && (
+              <div className="space-y-2">
+                {customVariables.map((variable, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={variable.name}
+                      readOnly
+                      className={`flex-1 text-xs px-2 py-1 rounded ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}
+                    />
+                    <input
+                      type="text"
+                      value={variable.value}
+                      onChange={(e) => {
+                        const newVars = [...customVariables];
+                        newVars[idx].value = e.target.value;
+                        setCustomVariables(newVars);
+                        localStorage.setItem('customVariables', JSON.stringify(newVars));
+                      }}
+                      placeholder="Value"
+                      className={`flex-1 text-xs px-2 py-1 rounded ${darkMode ? 'bg-[#1a1a1a] border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} border`}
+                    />
+                    <button
+                      onClick={() => {
+                        const newVars = customVariables.filter((_, i) => i !== idx);
+                        setCustomVariables(newVars);
+                        localStorage.setItem('customVariables', JSON.stringify(newVars));
+                      }}
+                      className="text-xs px-2 py-1 bg-red-600/20 hover:bg-red-600/30 rounded"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Advanced Formatting */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.8 }}
+            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
+          >
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span className="text-2xl">⚙️</span>
+              ADVANCED FORMATTING
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Page Orientation</label>
+                <select
+                  value={pageOrientation}
+                  onChange={(e) => setPageOrientation(e.target.value)}
+                  className={`w-full ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-coral-500 transition-all`}
+                >
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Page Margins (px)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={pageMargins.top}
+                    onChange={(e) => setPageMargins({...pageMargins, top: Number(e.target.value)})}
+                    placeholder="Top"
+                    className={`${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded px-2 py-1 text-sm`}
+                  />
+                  <input
+                    type="number"
+                    value={pageMargins.bottom}
+                    onChange={(e) => setPageMargins({...pageMargins, bottom: Number(e.target.value)})}
+                    placeholder="Bottom"
+                    className={`${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded px-2 py-1 text-sm`}
+                  />
+                  <input
+                    type="number"
+                    value={pageMargins.left}
+                    onChange={(e) => setPageMargins({...pageMargins, left: Number(e.target.value)})}
+                    placeholder="Left"
+                    className={`${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded px-2 py-1 text-sm`}
+                  />
+                  <input
+                    type="number"
+                    value={pageMargins.right}
+                    onChange={(e) => setPageMargins({...pageMargins, right: Number(e.target.value)})}
+                    placeholder="Right"
+                    className={`${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded px-2 py-1 text-sm`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showPageNumbers}
+                    onChange={(e) => setShowPageNumbers(e.target.checked)}
+                    className="w-4 h-4 text-coral-500"
+                  />
+                  <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Show Page Numbers</span>
+                </label>
+              </div>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Header Text (optional)</label>
+                <input
+                  type="text"
+                  value={headerText}
+                  onChange={(e) => setHeaderText(e.target.value)}
+                  placeholder="Header text"
+                  className={`w-full ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-3 py-2 text-sm`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Footer Text (optional)</label>
+                <input
+                  type="text"
+                  value={footerText}
+                  onChange={(e) => setFooterText(e.target.value)}
+                  placeholder="Footer text"
+                  className={`w-full ${darkMode ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-300'} border rounded-lg px-3 py-2 text-sm`}
+                />
+              </div>
+            </div>
           </motion.div>
         </div>
 
@@ -571,7 +1184,7 @@ export default function DocumentGenerator() {
         <div className="hidden lg:block sticky top-8 h-fit">
           <DocumentPreview
             ref={previewRef}
-            letterhead={LETTERHEADS[letterhead]}
+            letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
             recipientName={recipientName}
             recipientTitle={recipientTitle}
             recipientAddress={recipientAddress}
@@ -583,6 +1196,12 @@ export default function DocumentGenerator() {
             fontFamily={fontFamily}
             signatoryName={signatoryName}
             signatoryTitle={signatoryTitle}
+            pageOrientation={pageOrientation}
+            pageMargins={pageMargins}
+            showPageNumbers={showPageNumbers}
+            headerText={headerText}
+            footerText={footerText}
+            customLetterhead={customLetterhead}
           />
         </div>
       </div>
@@ -616,13 +1235,13 @@ export default function DocumentGenerator() {
             >
               <button
                 onClick={() => setShowPreview(false)}
-                className="mb-4 bg-gray-800 px-4 py-2 rounded-lg"
+                className={`mb-4 ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg`}
               >
                 ← Back
               </button>
               <DocumentPreview
                 ref={previewRef}
-                letterhead={LETTERHEADS[letterhead]}
+                letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
                 recipientName={recipientName}
                 recipientTitle={recipientTitle}
                 recipientAddress={recipientAddress}
@@ -634,6 +1253,64 @@ export default function DocumentGenerator() {
                 fontFamily={fontFamily}
                 signatoryName={signatoryName}
                 signatoryTitle={signatoryTitle}
+                pageOrientation={pageOrientation}
+                pageMargins={pageMargins}
+                showPageNumbers={showPageNumbers}
+                headerText={headerText}
+                footerText={footerText}
+                customLetterhead={customLetterhead}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Screen Preview Modal */}
+      <AnimatePresence>
+        {showFullScreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black z-50 overflow-auto p-4"
+            onClick={() => setShowFullScreen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-4xl mx-auto"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-white">Full Screen Preview</h2>
+                <button
+                  onClick={() => setShowFullScreen(false)}
+                  className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-white"
+                >
+                  ✕ Close (ESC)
+                </button>
+              </div>
+              <DocumentPreview
+                ref={previewRef}
+                letterhead={customLetterhead ? customLetterhead : LETTERHEADS[letterhead]}
+                recipientName={recipientName}
+                recipientTitle={recipientTitle}
+                recipientAddress={recipientAddress}
+                subjectLine={subjectLine}
+                documentType={documentType}
+                previewText={getPreviewText()}
+                fontSize={fontSize}
+                lineSpacing={lineSpacing}
+                fontFamily={fontFamily}
+                signatoryName={signatoryName}
+                signatoryTitle={signatoryTitle}
+                pageOrientation={pageOrientation}
+                pageMargins={pageMargins}
+                showPageNumbers={showPageNumbers}
+                headerText={headerText}
+                footerText={footerText}
+                customLetterhead={customLetterhead}
               />
             </motion.div>
           </motion.div>
@@ -645,16 +1322,16 @@ export default function DocumentGenerator() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
-        className="fixed bottom-0 left-0 right-0 bg-[#1a1a1a] border-t border-gray-800 p-4 backdrop-blur-xl bg-opacity-95"
+        className={`fixed bottom-0 left-0 right-0 ${darkMode ? 'bg-[#1a1a1a] border-gray-800' : 'bg-white border-gray-300'} border-t p-4 backdrop-blur-xl bg-opacity-95`}
       >
         <div className="max-w-7xl mx-auto">
           {/* Progress Bar */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-400">Document Progress</span>
+              <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Document Progress</span>
               <span className="text-sm font-medium text-coral-500">{Math.round(completionPercentage)}%</span>
             </div>
-            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+            <div className={`h-2 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'} rounded-full overflow-hidden`}>
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${completionPercentage}%` }}
@@ -699,35 +1376,100 @@ export default function DocumentGenerator() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setShowPreview(true)}
-              className="flex-1 min-w-[120px] bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
-            >
-              👁️ Preview
-            </button>
-            <button
-              onClick={downloadPDF}
-              disabled={!allComplete}
-              className={`flex-1 min-w-[120px] px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                allComplete
-                  ? 'bg-gradient-to-r from-coral-500 to-orange-500 hover:shadow-lg hover:shadow-coral-500/50'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-            >
-              📄 Download PDF
-            </button>
-            <button
-              onClick={downloadWord}
-              disabled={!allComplete}
-              className={`flex-1 min-w-[120px] px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                allComplete
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-            >
-              📝 Word
-            </button>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowPreview(true)}
+                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+              >
+                👁️ Preview
+              </button>
+              <button
+                onClick={() => setShowFullScreen(true)}
+                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+              >
+                ⛶ Full Screen
+              </button>
+              <button
+                onClick={printDocument}
+                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+              >
+                🖨️ Print
+              </button>
+              <button
+                onClick={duplicateDocument}
+                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+                title="Duplicate (Ctrl+D)"
+              >
+                📋 Copy
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={downloadPDF}
+                disabled={!allComplete}
+                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                  allComplete
+                    ? 'bg-gradient-to-r from-coral-500 to-orange-500 hover:shadow-lg hover:shadow-coral-500/50'
+                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                📄 PDF
+              </button>
+              <button
+                onClick={downloadWord}
+                disabled={!allComplete}
+                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                  allComplete
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                📝 Word
+              </button>
+              <button
+                onClick={downloadHTML}
+                disabled={!allComplete}
+                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                  allComplete
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                🌐 HTML
+              </button>
+              <button
+                onClick={downloadText}
+                disabled={!allComplete}
+                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                  allComplete
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}
+              >
+                📄 Text
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={saveDocument}
+                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+                title="Save (Ctrl+S)"
+              >
+                💾 Save
+              </button>
+              <button
+                onClick={() => {
+                  // DocuSign integration - opens DocuSign in new window
+                  const docuSignUrl = `https://app.docusign.com/home?redirectUrl=${encodeURIComponent(window.location.href)}`;
+                  window.open(docuSignUrl, '_blank');
+                }}
+                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+                title="Open DocuSign"
+              >
+                ✍️ DocuSign
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -748,8 +1490,16 @@ const DocumentPreview = React.forwardRef(({
   lineSpacing,
   fontFamily,
   signatoryName,
-  signatoryTitle
+  signatoryTitle,
+  pageOrientation = 'portrait',
+  pageMargins = { top: 48, right: 48, bottom: 48, left: 48 },
+  showPageNumbers = false,
+  headerText = '',
+  footerText = '',
+  customLetterhead = null
 }, ref) => {
+  const pageNumber = 1; // In a real implementation, this would track multiple pages
+  
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -765,48 +1515,62 @@ const DocumentPreview = React.forwardRef(({
       <div className="bg-white text-gray-900 rounded-lg shadow-2xl" style={{ overflow: 'hidden' }}>
         <div 
           ref={ref}
-          className="px-12 pt-20 pb-12 min-h-[29.7cm] relative"
+          className={`${pageOrientation === 'landscape' ? 'min-h-[21cm]' : 'min-h-[29.7cm]'} relative`}
           style={{
             fontFamily: fontFamily || "'Libre Baskerville', serif",
-            paddingTop: '5rem',
+            paddingTop: `${pageMargins.top}px`,
+            paddingRight: `${pageMargins.right}px`,
+            paddingBottom: `${pageMargins.bottom}px`,
+            paddingLeft: `${pageMargins.left}px`,
             marginTop: '0'
           }}
         >
+          {/* Header */}
+          {headerText && (
+            <div className="absolute top-0 left-0 right-0 text-center text-xs text-gray-500 border-b border-gray-200 pb-1" style={{ paddingTop: `${pageMargins.top - 20}px` }}>
+              {headerText}
+            </div>
+          )}
+
           {/* Letterhead */}
-          {letterhead && (
-            <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px', paddingTop: '1rem', marginTop: '0' }}>
-              <div className="flex items-start gap-3 mb-2">
-                <div className="flex-1">
-                  <h1 
-                    className="text-4xl font-bold leading-tight mb-2"
-                    style={{
-                      background: letterhead.color === 'from-blue-500 to-cyan-400' 
-                        ? 'linear-gradient(to right, #3b82f6, #22d3ee)'
-                        : letterhead.color === 'from-teal-500 to-emerald-400'
-                        ? 'linear-gradient(to right, #14b8a6, #34d399)'
-                        : 'linear-gradient(to right, #6b7280, #9ca3af)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      color: letterhead.color === 'from-blue-500 to-cyan-400' 
-                        ? '#3b82f6'
-                        : letterhead.color === 'from-teal-500 to-emerald-400'
-                        ? '#14b8a6'
-                        : '#6b7280',
-                      display: 'inline-block',
-                      wordBreak: 'break-word',
-                      lineHeight: '1.1'
-                    }}
-                  >
-                    {letterhead.displayName || letterhead.name || 'Letterhead'}
-                  </h1>
-                  {letterhead.file && (
-                    <div className="text-xs text-gray-500 mt-2">
-                      Source: {letterhead.file.split('/').pop()}
-                    </div>
-                  )}
+          {(letterhead || customLetterhead) && (
+            <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px', paddingTop: '1rem', marginTop: headerText ? '20px' : '0' }}>
+              {customLetterhead && customLetterhead.type === 'image' ? (
+                <img src={customLetterhead.data} alt="Custom Letterhead" className="max-w-full h-auto mb-4" />
+              ) : letterhead && (
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="flex-1">
+                    <h1 
+                      className="text-4xl font-bold leading-tight mb-2"
+                      style={{
+                        background: letterhead.color === 'from-blue-500 to-cyan-400' 
+                          ? 'linear-gradient(to right, #3b82f6, #22d3ee)'
+                          : letterhead.color === 'from-teal-500 to-emerald-400'
+                          ? 'linear-gradient(to right, #14b8a6, #34d399)'
+                          : 'linear-gradient(to right, #6b7280, #9ca3af)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        color: letterhead.color === 'from-blue-500 to-cyan-400' 
+                          ? '#3b82f6'
+                          : letterhead.color === 'from-teal-500 to-emerald-400'
+                          ? '#14b8a6'
+                          : '#6b7280',
+                        display: 'inline-block',
+                        wordBreak: 'break-word',
+                        lineHeight: '1.1'
+                      }}
+                    >
+                      {letterhead.displayName || letterhead.name || 'Letterhead'}
+                    </h1>
+                    {letterhead.file && (
+                      <div className="text-xs text-gray-500 mt-2">
+                        Source: {letterhead.file.split('/').pop()}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -840,11 +1604,11 @@ const DocumentPreview = React.forwardRef(({
             className="whitespace-pre-wrap mb-8"
             style={{
               fontSize: `${fontSize}px`,
-              lineHeight: lineSpacing
+              lineHeight: lineSpacing,
+              fontFamily: fontFamily || "'Libre Baskerville', serif"
             }}
-          >
-            {previewText}
-          </div>
+            dangerouslySetInnerHTML={{ __html: previewText.replace(/\n/g, '<br />') }}
+          />
 
           {/* Signature Section */}
           {(signatoryName || signatoryTitle) && (
@@ -862,6 +1626,20 @@ const DocumentPreview = React.forwardRef(({
                   {signatoryTitle}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Footer */}
+          {footerText && (
+            <div className="absolute bottom-0 left-0 right-0 text-center text-xs text-gray-500 border-t border-gray-200 pt-1" style={{ paddingBottom: `${pageMargins.bottom - 20}px` }}>
+              {footerText}
+            </div>
+          )}
+
+          {/* Page Numbers */}
+          {showPageNumbers && (
+            <div className="absolute bottom-0 right-0 text-xs text-gray-500" style={{ paddingBottom: `${pageMargins.bottom - 20}px`, paddingRight: `${pageMargins.right}px` }}>
+              1
             </div>
           )}
         </div>
