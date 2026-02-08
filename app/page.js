@@ -1266,86 +1266,83 @@ export default function DocumentGenerator() {
 
           {/* Action Buttons */}
           <div className="space-y-3">
+            {/* View Actions */}
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setShowPreview(true)}
-                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
-              >
-                👁️ Preview
-              </button>
-              <button
                 onClick={() => setShowFullScreen(true)}
-                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+                className={`flex-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2`}
               >
-                ⛶ Full Screen
+                👁️ Preview Document
               </button>
               <button
                 onClick={printDocument}
-                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+                className={`flex-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2`}
               >
                 🖨️ Print
               </button>
-              <button
-                onClick={duplicateDocument}
-                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
-                title="Duplicate (Ctrl+D)"
-              >
-                📋 Copy
-              </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={downloadPDF}
-                disabled={!allComplete}
-                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
-                  allComplete
-                    ? 'bg-gradient-to-r from-coral-500 to-orange-500 hover:shadow-lg hover:shadow-coral-500/50'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                📄 PDF
-              </button>
-              <button
-                onClick={downloadWord}
-                disabled={!allComplete}
-                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
-                  allComplete
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                📝 Word
-              </button>
-              <button
-                onClick={downloadHTML}
-                disabled={!allComplete}
-                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
-                  allComplete
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                🌐 HTML
-              </button>
-              <button
-                onClick={downloadText}
-                disabled={!allComplete}
-                className={`flex-1 min-w-[100px] px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
-                  allComplete
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                📄 Text
-              </button>
+            
+            {/* Export Actions */}
+            <div>
+              <div className={`text-xs mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Download As:</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={downloadPDF}
+                  disabled={!allComplete}
+                  className={`flex-1 min-w-[120px] px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                    allComplete
+                      ? 'bg-gradient-to-r from-coral-500 to-orange-500 hover:shadow-lg hover:shadow-coral-500/50 text-white'
+                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={downloadWord}
+                  disabled={!allComplete}
+                  className={`flex-1 min-w-[120px] px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                    allComplete
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  📝 Download Word
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <button
+                  onClick={downloadHTML}
+                  disabled={!allComplete}
+                  className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
+                    allComplete
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  🌐 HTML
+                </button>
+                <button
+                  onClick={downloadText}
+                  disabled={!allComplete}
+                  className={`flex-1 min-w-[100px] px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 ${
+                    allComplete
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  📄 Text
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            
+            {/* Primary Actions */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-700">
               <button
                 onClick={saveDocument}
-                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
+                className={`flex-1 ${darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'} px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-white`}
                 title="Save (Ctrl+S)"
               >
-                💾 Save
+                💾 Save Document
               </button>
               <button
                 onClick={() => {
@@ -1353,10 +1350,10 @@ export default function DocumentGenerator() {
                   const docuSignUrl = `https://app.docusign.com/home?redirectUrl=${encodeURIComponent(window.location.href)}`;
                   window.open(docuSignUrl, '_blank');
                 }}
-                className={`flex-1 min-w-[100px] ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm`}
-                title="Open DocuSign"
+                className={`flex-1 ${darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-white`}
+                title="Send to DocuSign"
               >
-                ✍️ DocuSign
+                ✍️ Send to DocuSign
               </button>
             </div>
           </div>
