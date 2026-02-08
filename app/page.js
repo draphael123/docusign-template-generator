@@ -1611,8 +1611,9 @@ const DocumentPreview = React.forwardRef(({
           <div 
             className="relative"
             style={{
-              marginTop: (letterhead || customLetterhead) ? '80px' : '0',
-              paddingTop: (letterhead || customLetterhead) ? '40px' : '0'
+              marginTop: (letterhead || customLetterhead) ? '300px' : '0',
+              paddingTop: (letterhead || customLetterhead) ? '60px' : '0',
+              minHeight: '400px'
             }}
           >
             {/* Recipient */}
