@@ -144,8 +144,6 @@ export default function DocumentGenerator() {
   // UI State
   const [showPreview, setShowPreview] = useState(false);
   const [showFullScreen, setShowFullScreen] = useState(false);
-  const [savedTemplates, setSavedTemplates] = useState([]);
-  const [customVariables, setCustomVariables] = useState([]);
   const [insertedImages, setInsertedImages] = useState([]);
   
   // Refs
@@ -172,25 +170,6 @@ export default function DocumentGenerator() {
       }
     }
     
-    // Load saved templates
-    const templates = localStorage.getItem('savedTemplates');
-    if (templates) {
-      try {
-        setSavedTemplates(JSON.parse(templates));
-      } catch (e) {
-        console.error('Failed to load templates:', e);
-      }
-    }
-    
-    // Load custom variables
-    const variables = localStorage.getItem('customVariables');
-    if (variables) {
-      try {
-        setCustomVariables(JSON.parse(variables));
-      } catch (e) {
-        console.error('Failed to load variables:', e);
-      }
-    }
   }, []);
 
   // Auto-save to localStorage
@@ -315,31 +294,6 @@ export default function DocumentGenerator() {
     // All other state is already in place, just update the name
   };
 
-  const saveTemplate = () => {
-    const template = {
-      name: prompt('Enter template name:') || 'Untitled Template',
-      body: documentBody,
-      timestamp: new Date().toISOString()
-    };
-    const newTemplates = [...savedTemplates, template];
-    setSavedTemplates(newTemplates);
-    localStorage.setItem('savedTemplates', JSON.stringify(newTemplates));
-    alert('Template saved!');
-  };
-
-  const loadTemplate = (template) => {
-    setDocumentBody(template.body);
-    addToHistory(template.body);
-  };
-
-  const addCustomVariable = () => {
-    const name = prompt('Enter variable name (without {{}}):');
-    if (name) {
-      const newVars = [...customVariables, { name: name.trim(), value: '' }];
-      setCustomVariables(newVars);
-      localStorage.setItem('customVariables', JSON.stringify(newVars));
-    }
-  };
 
   const handleImageInsert = (e) => {
     const file = e.target.files[0];
@@ -390,12 +344,6 @@ export default function DocumentGenerator() {
       month: 'long', 
       day: 'numeric' 
     }));
-    
-    // Replace custom variables
-    customVariables.forEach(variable => {
-      const regex = new RegExp(`\\{\\{${variable.name}\\}\\}`, 'g');
-      text = text.replace(regex, variable.value || `{{${variable.name}}}`);
-    });
     
     // Replace image placeholders with actual images
     insertedImages.forEach(img => {
@@ -951,16 +899,6 @@ export default function DocumentGenerator() {
               >
                 🏢 Company
               </button>
-              {customVariables.map((variable, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => insertPlaceholder(`{{${variable.name}}}`)}
-                  className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/50 rounded text-xs transition-colors"
-                  title={`Insert ${variable.name}`}
-                >
-                  {variable.name}
-                </button>
-              ))}
             </div>
 
             <textarea
@@ -984,116 +922,11 @@ export default function DocumentGenerator() {
             </p>
           </motion.div>
 
-          {/* Template Management */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
-            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <span className="text-2xl">📚</span>
-                TEMPLATES
-              </h2>
-              <button
-                onClick={saveTemplate}
-                className={`px-3 py-1.5 text-xs rounded ${darkMode ? 'bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50' : 'bg-blue-100 hover:bg-blue-200 border border-blue-300'} transition-colors`}
-              >
-                💾 Save
-              </button>
-            </div>
-            {savedTemplates.length > 0 && (
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {savedTemplates.map((template, idx) => (
-                  <div key={idx} className={`flex items-center justify-between p-2 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                    <span className="text-sm">{template.name}</span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => loadTemplate(template)}
-                        className="text-xs px-2 py-1 bg-green-600/20 hover:bg-green-600/30 rounded"
-                      >
-                        Load
-                      </button>
-                      <button
-                        onClick={() => {
-                          const newTemplates = savedTemplates.filter((_, i) => i !== idx);
-                          setSavedTemplates(newTemplates);
-                          localStorage.setItem('savedTemplates', JSON.stringify(newTemplates));
-                        }}
-                        className="text-xs px-2 py-1 bg-red-600/20 hover:bg-red-600/30 rounded"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Variable Management */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.7 }}
-            className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <span className="text-2xl">🔤</span>
-                CUSTOM VARIABLES
-              </h2>
-              <button
-                onClick={addCustomVariable}
-                className={`px-3 py-1.5 text-xs rounded ${darkMode ? 'bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/50' : 'bg-purple-100 hover:bg-purple-200 border border-purple-300'} transition-colors`}
-              >
-                + Add
-              </button>
-            </div>
-            {customVariables.length > 0 && (
-              <div className="space-y-2">
-                {customVariables.map((variable, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={variable.name}
-                      readOnly
-                      className={`flex-1 text-xs px-2 py-1 rounded ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}
-                    />
-                    <input
-                      type="text"
-                      value={variable.value}
-                      onChange={(e) => {
-                        const newVars = [...customVariables];
-                        newVars[idx].value = e.target.value;
-                        setCustomVariables(newVars);
-                        localStorage.setItem('customVariables', JSON.stringify(newVars));
-                      }}
-                      placeholder="Value"
-                      className={`flex-1 text-xs px-2 py-1 rounded ${darkMode ? 'bg-[#1a1a1a] border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900'} border`}
-                    />
-                    <button
-                      onClick={() => {
-                        const newVars = customVariables.filter((_, i) => i !== idx);
-                        setCustomVariables(newVars);
-                        localStorage.setItem('customVariables', JSON.stringify(newVars));
-                      }}
-                      className="text-xs px-2 py-1 bg-red-600/20 hover:bg-red-600/30 rounded"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-
           {/* Advanced Formatting */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 0.6 }}
             className={`backdrop-blur-xl ${darkMode ? 'bg-white/5' : 'bg-white/80'} rounded-2xl p-6 border ${darkMode ? 'border-white/10' : 'border-gray-200'} shadow-2xl`}
           >
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
