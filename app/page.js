@@ -703,17 +703,19 @@ const DocumentPreview = React.forwardRef(({
       </h2>
 
       {/* A4 Paper Simulation */}
-      <div className="bg-white text-gray-900 rounded-lg shadow-2xl overflow-hidden">
+      <div className="bg-white text-gray-900 rounded-lg shadow-2xl" style={{ overflow: 'hidden' }}>
         <div 
           ref={ref}
-          className="p-12 min-h-[29.7cm] relative"
+          className="px-12 pt-20 pb-12 min-h-[29.7cm] relative"
           style={{
-            fontFamily: "'Libre Baskerville', serif"
+            fontFamily: "'Libre Baskerville', serif",
+            paddingTop: '5rem',
+            marginTop: '0'
           }}
         >
           {/* Letterhead */}
           {letterhead && (
-            <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px' }}>
+            <div className="mb-8 pb-6 border-b-2 border-gray-300" style={{ minHeight: '120px', paddingTop: '1rem', marginTop: '0' }}>
               <div className="flex items-start gap-3 mb-2">
                 <span className="text-4xl flex-shrink-0" style={{ lineHeight: '1.2' }}>
                   {letterhead.logo || '🏢'}
@@ -740,7 +742,8 @@ const DocumentPreview = React.forwardRef(({
                         ? '#14b8a6'
                         : '#6b7280',
                       display: 'inline-block',
-                      wordBreak: 'break-word'
+                      wordBreak: 'break-word',
+                      lineHeight: '1.1'
                     }}
                   >
                     {letterhead.name || 'Company Name'}
