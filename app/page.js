@@ -183,18 +183,24 @@ export default function DocumentGenerator() {
     }, 0);
   };
 
-  // Helper function to load image as base64
-  const loadImageAsBase64 = (url) => {
+  // Helper function to load and crop image header (top 15% of the image)
+  const loadHeaderImage = (url) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
+        // Crop to top 15% of the image (just the header portion)
+        const cropHeight = Math.floor(img.height * 0.15);
         canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.height = cropHeight;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
+        // Draw only the top portion of the image
+        ctx.drawImage(img, 0, 0, img.width, cropHeight, 0, 0, img.width, cropHeight);
+        resolve({ 
+          data: canvas.toDataURL('image/png'),
+          aspectRatio: img.width / cropHeight
+        });
       };
       img.onerror = reject;
       img.src = url;
@@ -210,11 +216,14 @@ export default function DocumentGenerator() {
       
       const letterheadData = LETTERHEADS[letterhead];
       
-      // Try to load and add letterhead image
+      // Try to load and add letterhead image (cropped to header only)
+      let headerHeight = 35;
       try {
-        const imgData = await loadImageAsBase64(letterheadData.image);
-        // Add letterhead image at top - spanning full width, cropped height
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, 40);
+        const { data: imgData, aspectRatio } = await loadHeaderImage(letterheadData.image);
+        // Calculate height to maintain aspect ratio
+        headerHeight = pageWidth / aspectRatio;
+        if (headerHeight > 50) headerHeight = 50; // Max height cap
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, headerHeight);
       } catch (imgError) {
         // If image fails, add text header
         console.log('Image load failed, using text header');
@@ -223,17 +232,18 @@ export default function DocumentGenerator() {
         pdf.text(letterheadData.fullName, 20, 25);
         pdf.setDrawColor(0, 128, 128);
         pdf.line(20, 30, pageWidth - 20, 30);
+        headerHeight = 35;
       }
       
-      // Reset text color
+      // Reset text color to black
       pdf.setTextColor(0, 0, 0);
       
-      // Date (right aligned)
+      // Date (right aligned) - positioned below header
       pdf.setFontSize(11);
       const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      pdf.text(date, pageWidth - 20, 55, { align: 'right' });
+      pdf.text(date, pageWidth - 20, headerHeight + 15, { align: 'right' });
       
-      let yPosition = 70;
+      let yPosition = headerHeight + 30;
       
       // Recipient info
       if (recipientName) {
