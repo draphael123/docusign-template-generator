@@ -207,6 +207,31 @@ export default function DocumentGenerator() {
     });
   };
 
+  // Helper function to load and crop image footer (bottom 12% of the image)
+  const loadFooterImage = (url) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Crop to bottom 12% of the image (the footer portion)
+        const cropHeight = Math.floor(img.height * 0.12);
+        const startY = img.height - cropHeight;
+        canvas.width = img.width;
+        canvas.height = cropHeight;
+        const ctx = canvas.getContext('2d');
+        // Draw only the bottom portion of the image
+        ctx.drawImage(img, 0, startY, img.width, cropHeight, 0, 0, img.width, cropHeight);
+        resolve({ 
+          data: canvas.toDataURL('image/png'),
+          aspectRatio: img.width / cropHeight
+        });
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  };
+
   // Download PDF
   const downloadPDF = async () => {
     try {
@@ -294,6 +319,16 @@ export default function DocumentGenerator() {
         }
         pdf.text(lines[i], 20, yPosition);
         yPosition += lineHeight;
+      }
+      
+      // Add footer image at the bottom of the page
+      try {
+        const { data: footerData, aspectRatio: footerRatio } = await loadFooterImage(letterheadData.image);
+        const footerHeight = pageWidth / footerRatio;
+        const footerY = pageHeight - footerHeight;
+        pdf.addImage(footerData, 'PNG', 0, footerY, pageWidth, footerHeight);
+      } catch (footerError) {
+        console.log('Footer image load failed');
       }
       
       const fileName = documentType === 'None' ? 'Document' : documentType.replace(/\s+/g, '_');
