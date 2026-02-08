@@ -1493,6 +1493,14 @@ const DocumentPreview = React.forwardRef(({
                       </div>
                     );
                   } else if (letterheadContent.type === 'html' && letterheadContent.data) {
+                    // Clean up the HTML to remove dates and test text that might be in the letterhead
+                    let cleanedHtml = letterheadContent.data;
+                    // Remove common date patterns and test text
+                    cleanedHtml = cleanedHtml.replace(/February\s+\d+,\s+\d{4}/gi, '');
+                    cleanedHtml = cleanedHtml.replace(/test/gi, '');
+                    cleanedHtml = cleanedHtml.replace(/<p[^>]*>test<\/p>/gi, '');
+                    cleanedHtml = cleanedHtml.replace(/<p[^>]*>\s*<\/p>/g, '');
+                    
                     return (
                       <div 
                         className="w-full letterhead-content"
@@ -1500,7 +1508,7 @@ const DocumentPreview = React.forwardRef(({
                           background: 'white',
                           overflow: 'hidden'
                         }}
-                        dangerouslySetInnerHTML={{ __html: letterheadContent.data }}
+                        dangerouslySetInnerHTML={{ __html: cleanedHtml }}
                       />
                     );
                   }
@@ -1516,15 +1524,6 @@ const DocumentPreview = React.forwardRef(({
 
           {/* Document Content - Appears below letterhead */}
           <div className="relative">
-            {/* Date */}
-            <div className="text-right mb-6 text-sm text-gray-600">
-              {new Date().toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
-
             {/* Recipient */}
             {recipientName && (
               <div className="mb-6 text-sm">
