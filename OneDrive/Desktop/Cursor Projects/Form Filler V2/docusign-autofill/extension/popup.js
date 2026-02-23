@@ -41,8 +41,9 @@ const DEFAULT_SETTINGS = {
 const RECORD_PAGE_SIZE = 50;
 const FILL_HISTORY_MAX = 10;
 
+// Default source: provider compliance dashboard workflow (see CURSOR_PROMPT / first-use workflow)
 const SAMPLE_CSV =
-  'Name,Email,Company\nJane Doe,jane@example.com,Acme Inc\nJohn Smith,john@example.com,Widget Co';
+  'Provider Name,NPI,License Number,Email,Agreement Status\nJane Doe,1234567890,UT-12345,jane@example.com,Signed\nJohn Smith,0987654321,UT-67890,john@example.com,Pending';
 
 
 // ═════════════════════════════════════════════════════════════════════
@@ -129,6 +130,16 @@ function scoreColumnMatch(fieldLabel, column) {
     (w) => bWords.some((bw) => bw.includes(w) || w.includes(bw))
   ).length;
   if (overlap > 0) return 0.4 + (overlap / Math.max(aWords.length, bWords.length)) * 0.4;
+
+  const synonymPairs = [
+    ['name', 'provider name'], ['name', 'applicant name'], ['name', 'first name'], ['name', 'full name'],
+    ['license', 'license number'], ['license', 'dopl license'], ['number', 'license number'], ['number', 'npi'],
+    ['email', 'email address'], ['phone', 'phone number'], ['address', 'practice establishment'], ['status', 'agreement status']
+  ];
+  for (let i = 0; i < synonymPairs.length; i++) {
+    const [x, y] = synonymPairs[i];
+    if ((a.includes(x) && b.includes(y)) || (a.includes(y) && b.includes(x))) return 0.65;
+  }
   return 0;
 }
 
@@ -157,7 +168,8 @@ function getRecordValue(record, column, mapping) {
     else if (mapping.transform === 'trim') val = val.trim();
   }
 
-  if (state.settings.dateFormat && /date|dob|birth|year/i.test(column)) {
+  const dateLike = (s) => /date|dob|birth|year|effective|expir|signed/i.test(String(s || ''));
+  if (state.settings.dateFormat && (dateLike(column) || (mapping && dateLike(mapping.fieldLabel)))) {
     const d = new Date(val);
     if (!isNaN(d.getTime())) {
       const pad = (n) => String(n).padStart(2, '0');
@@ -566,7 +578,7 @@ async function loadSelectedSheet() {
 function loadSampleCsv(silent) {
   try {
     const parsed = parseCSV(SAMPLE_CSV);
-    state.csvData = { name: 'sample.csv', columns: parsed.columns, rows: parsed.rows };
+    state.csvData = { name: 'docufill_providers.csv', columns: parsed.columns, rows: parsed.rows };
     state.filledRecordIndices = [];
     saveToStorage();
     refreshAll();
@@ -867,8 +879,34 @@ function setupMappingTab() {
   $('confirmMappingBtn').addEventListener('click', confirmMapping);
   $('cancelCaptureBtn').addEventListener('click', cancelCapture);
   $('saveTemplateBtn').addEventListener('click', saveTemplate);
+  $('verifyMappingsBtn').addEventListener('click', verifyMappingsOnPage);
   $('newTemplateBtn').addEventListener('click', newTemplate);
   $('loadTemplateBtn').addEventListener('click', loadTemplateIntoEditor);
+}
+
+function verifyMappingsOnPage() {
+  const fieldKeys = (state.pendingMappings || []).map((m) => m.fieldKey).filter(Boolean);
+  if (!fieldKeys.length) {
+    showToast('No mappings to verify — add mappings first', 'error');
+    return;
+  }
+  sendToActiveTab({ type: 'VERIFY_MAPPINGS', fieldKeys }, (response) => {
+    if (chrome.runtime.lastError) {
+      showToast('Open a DocuSign tab and try again', 'error');
+      return;
+    }
+    if (!response || !response.success) {
+      showToast('Verification failed', 'error');
+      return;
+    }
+    const missing = response.missing || [];
+    if (missing.length === 0) {
+      showToast('All ' + fieldKeys.length + ' mapping(s) found on page', 'success');
+    } else {
+      const labels = state.pendingMappings.filter((m) => missing.indexOf(m.fieldKey) >= 0).map((m) => m.fieldLabel || m.fieldKey);
+      showToast(missing.length + ' not on page: ' + labels.slice(0, 3).join(', ') + (labels.length > 3 ? '…' : ''), 'error');
+    }
+  });
 }
 
 function scanPageForFields() {
@@ -899,11 +937,17 @@ function scanPageForFields() {
     response.fields.forEach((f) => {
       const label = f.fieldLabel || f.fieldKey || '';
       let bestCol = '';
-      let bestScore = 0.3;
+      let bestScore = 0.25;
       columns.forEach((col) => {
         const score = scoreColumnMatch(label, col);
         if (score > bestScore) { bestScore = score; bestCol = col; }
       });
+      if (!bestCol && (f.fieldKey || '').toString().length > 2) {
+        columns.forEach((col) => {
+          const score = scoreColumnMatch((f.fieldKey || '').toString(), col);
+          if (score > bestScore) { bestScore = score; bestCol = col; }
+        });
+      }
       if (bestCol) {
         mappings.push({
           fieldKey: f.fieldKey,
@@ -1095,6 +1139,21 @@ function setupFillTab() {
   $('retryFailedBtn').addEventListener('click', () => triggerFill(false, true));
   $('undoFillBtn').addEventListener('click', undoLastFill);
 
+  // Global Enter to fill when Fill tab is active (and not typing in an input)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const panel = document.querySelector('.panel.active');
+    if (!panel || panel.id !== 'tab-fill') return;
+    const t = e.target;
+    const tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    const sel = $('recordSelect');
+    if (sel && (t === sel || sel.contains(t))) return; // record list has its own Enter handler
+    if ($('fillBtn').disabled) return;
+    e.preventDefault();
+    triggerFill(false);
+  });
+
   // Keyboard navigation in record list
   $('recordSelect').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -1263,13 +1322,20 @@ function triggerFill(fillAndNext, retryFailedOnly) {
     }
 
     // Display results
-    if (response && response.success) {
+    if (response && response.failedKeys && response.failedKeys.length > 0) {
+      showToast(response.count > 0
+        ? `${response.count} filled, ${response.failedKeys.length} field(s) not found — check Mapping`
+        : `${response.failedKeys.length} field(s) not found — re-capture in Mapping tab`, 'error');
+    } else if (response && response.success) {
       showToast(`Filled ${response.count} field(s)`, 'success');
+    }
+    if (response && response.success) {
       renderFillSummary(summaryEl, errEl, retryBtn, response);
       if (fillAndNext || state.settings.batchFillMode) fillNextRecord();
-    } else {
-      const msg = response?.error || 'Fill failed — check console';
-      showToast(msg, 'error');
+    } else if (!response || !response.success) {
+      if (!response || !response.failedKeys || response.failedKeys.length === 0) {
+        showToast(response?.error || 'Fill failed — check console', 'error');
+      }
       renderFillErrors(errEl, retryBtn, response);
     }
   });
@@ -1633,7 +1699,7 @@ function checkDocuSignTab() {
     } else {
       state.isOnDocuSign = false;
       state.contentScriptReady = false;
-      $('pageStatus').textContent = 'Not on DocuSign';
+      $('pageStatus').textContent = 'Not on DocuSign — open a DocuSign tab';
       $('pageStatus').style.color = 'var(--text-dim)';
       $('fillTabHint').style.display = 'block';
       $('staleTabHint').style.display = 'none';
@@ -1671,6 +1737,22 @@ function listenForContentMessages() {
       $('capturedFieldName').textContent = message.fieldLabel || message.fieldKey;
       $('pendingCapture').style.display = 'block';
       refreshColumnDropdowns();
+      const label = message.fieldLabel || message.fieldKey || '';
+      const columns = state.csvData ? state.csvData.columns : [];
+      let bestCol = '';
+      let bestScore = 0.25;
+      columns.forEach((col) => {
+        const score = scoreColumnMatch(label, col);
+        if (score > bestScore) { bestScore = score; bestCol = col; }
+      });
+      if (!bestCol && (message.fieldKey || '').toString().length > 2) {
+        columns.forEach((col) => {
+          const score = scoreColumnMatch((message.fieldKey || '').toString(), col);
+          if (score > bestScore) { bestScore = score; bestCol = col; }
+        });
+      }
+      const colSelect = $('columnSelect');
+      if (colSelect && bestCol) colSelect.value = bestCol;
       document.querySelector('.tab[data-tab="mapping"]').click();
     }
   });

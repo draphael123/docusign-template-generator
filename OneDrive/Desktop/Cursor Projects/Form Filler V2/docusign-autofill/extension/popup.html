@@ -379,10 +379,11 @@
     <div id="mappingsList">
       <div class="empty-state">
         <div class="empty-icon">↔️</div>
-        <div class="empty-text">No mappings yet.<br>Capture fields to build your template.</div>
+        <div class="empty-text">No mappings yet.<br>Use <strong>Scan page for fields</strong> to auto-detect, or <strong>Start Capturing Fields</strong> and click each field.</div>
       </div>
     </div>
 
+    <button class="btn btn-secondary btn-sm" id="verifyMappingsBtn" style="margin-top:8px; width:100%;">✓ Verify mappings on page</button>
     <div class="divider"></div>
     <button class="btn btn-primary" id="saveTemplateBtn">💾 Save Template</button>
   </div>
@@ -511,10 +512,10 @@
   <!-- HELP TAB -->
   <div class="panel" id="tab-help" role="tabpanel" aria-labelledby="tab-help-btn">
     <div class="card" style="margin-bottom:12px;">
-      <div class="section-label">First time?</div>
+      <div class="section-label">First time? (Provider compliance workflow)</div>
       <ol style="font-size:12px; color:var(--text-muted); margin-left:16px; line-height:1.7;">
-        <li><strong style="color:var(--text);">Data tab</strong> — Upload your CSV or Excel file.</li>
-        <li><strong style="color:var(--text);">Mapping tab</strong> — Open a DocuSign document, click “Start Capturing Fields”, then click each field and choose the matching column.</li>
+        <li><strong style="color:var(--text);">Data tab</strong> — Upload <code>docufill_providers.csv</code> (or use the loaded sample).</li>
+        <li><strong style="color:var(--text);">Mapping tab</strong> — Open a DocuSign provider agreement, click “Start Capturing Fields”, then click each field and choose the matching column. Save as e.g. "Provider Agreement".</li>
         <li><strong style="color:var(--text);">Fill tab</strong> — Select template and record, then click Autofill.</li>
       </ol>
     </div>
