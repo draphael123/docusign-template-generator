@@ -618,7 +618,7 @@
   <div class="section-eyebrow">Recent updates</div>
   <h2 class="section-title">Changelog</h2>
   <p class="section-sub">What's new on this site and in the extension.</p>
-  <p class="last-updated-line">Last updated: <span>February 22, 2025</span></p>
+  <p class="last-updated-line">Last updated: <span id="site-last-updated">February 23, 2025</span></p>
   <div class="changelog-list">
     <div class="changelog-item">
       <span class="changelog-date">Feb 22, 2025</span>
@@ -792,13 +792,25 @@
     <span class="sep">·</span>
     <span>We don’t collect your data.</span>
     <span class="sep">·</span>
-    <span>Last updated Feb 22, 2025 · v1.2.0</span>
+    <span>Last updated <span id="footer-last-updated">Feb 23, 2025</span> · v1.2.0</span>
     <span class="sep">·</span>
     <button type="button" id="theme-toggle-site" style="background:none;border:none;color:var(--blue);cursor:pointer;font:inherit;text-decoration:underline;padding:0;">Dark mode</button>
   </div>
 </footer>
 
 <script>
+(function() {
+  // Set "Last updated" from page deploy time (updates automatically when site is redeployed)
+  var lastMod = new Date(document.lastModified);
+  if (!isNaN(lastMod.getTime())) {
+    var longDate = lastMod.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    var shortDate = lastMod.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var elChangelog = document.getElementById('site-last-updated');
+    var elFooter = document.getElementById('footer-last-updated');
+    if (elChangelog) elChangelog.textContent = longDate;
+    if (elFooter) elFooter.textContent = shortDate;
+  }
+})();
 (function() {
   var zipUrl = 'public/docufill-extension.zip';
   function checkZip() {
