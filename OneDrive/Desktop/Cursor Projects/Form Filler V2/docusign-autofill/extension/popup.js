@@ -65,6 +65,7 @@ let state = {
 
   // Fill state
   filteredIndices: null,
+  filledRecordIndices: [],
   selectedRecord: null,
   recordPage: 0,
   lastFillResult: null,
@@ -129,6 +130,16 @@ function scoreColumnMatch(fieldLabel, column) {
   ).length;
   if (overlap > 0) return 0.4 + (overlap / Math.max(aWords.length, bWords.length)) * 0.4;
   return 0;
+}
+
+function confidenceBadge(score) {
+  if (score == null) return '';
+  const pct = Math.round(score * 100);
+  let color;
+  if (score >= 0.95) color = 'var(--success)';
+  else if (score >= 0.7) color = 'var(--accent)';
+  else color = 'var(--warning)';
+  return ` <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${color}22;color:${color};font-weight:600;margin-left:4px;">${pct}%</span>`;
 }
 
 function getRecordValue(record, column, mapping) {
@@ -230,7 +241,7 @@ async function loadFromStorage() {
   return new Promise((resolve) => {
     const keys = [
       'csvData', 'templates', 'lastTemplate', 'lastRecord',
-      'settings', 'onboardingDismissed', 'fillHistory',
+      'settings', 'onboardingDismissed', 'fillHistory', 'filledRecordIndices',
     ];
     chrome.storage.local.get(keys, async (result) => {
       // Migrate csvData from chrome.storage.local to IndexedDB (one-time)
@@ -258,6 +269,9 @@ async function loadFromStorage() {
       if (result.onboardingDismissed) state.onboardingDismissed = true;
       if (Array.isArray(result.fillHistory)) {
         state.fillHistory = result.fillHistory.slice(0, FILL_HISTORY_MAX);
+      }
+      if (Array.isArray(result.filledRecordIndices)) {
+        state.filledRecordIndices = result.filledRecordIndices;
       }
 
       refreshAll();
@@ -290,6 +304,7 @@ function saveToStorage() {
     settings: state.settings,
     onboardingDismissed: state.onboardingDismissed,
     fillHistory: state.fillHistory.slice(0, FILL_HISTORY_MAX),
+    filledRecordIndices: state.filledRecordIndices,
   };
 
   const lastTemplate = $('templateSelect')?.value || '';
@@ -435,6 +450,7 @@ function setupDataTab() {
     state.csvData = null;
     state.selectedRecord = null;
     state.filteredIndices = null;
+    state.filledRecordIndices = [];
     saveToStorage();
     clearCsvData().catch((e) => console.error('IndexedDB clear failed:', e));
     refreshAll();
@@ -506,6 +522,7 @@ async function handleFileUpload(file) {
 
     state.csvData = { name: file.name, columns, rows };
     state.filteredIndices = null;
+    state.filledRecordIndices = [];
     saveToStorage();
     refreshAll();
     showToast(
@@ -531,6 +548,7 @@ async function loadSelectedSheet() {
     }
 
     state.csvData = { name: state.pendingXlsxFileName || 'Sheet', columns, rows };
+    state.filledRecordIndices = [];
     state.pendingXlsxData = null;
     state.pendingXlsxSheets = null;
     state.pendingXlsxFileName = null;
@@ -549,6 +567,7 @@ function loadSampleCsv(silent) {
   try {
     const parsed = parseCSV(SAMPLE_CSV);
     state.csvData = { name: 'sample.csv', columns: parsed.columns, rows: parsed.rows };
+    state.filledRecordIndices = [];
     saveToStorage();
     refreshAll();
     if (!silent) showToast('Loaded sample CSV (' + parsed.rows.length + ' rows)', 'success');
@@ -890,6 +909,7 @@ function scanPageForFields() {
           fieldKey: f.fieldKey,
           fieldLabel: f.fieldLabel || f.fieldKey,
           column: bestCol,
+          confidence: bestScore,
         });
       }
     });
@@ -988,7 +1008,7 @@ function renderMappingsList() {
         <div class="mapping-row" style="grid-template-columns:1fr 24px 1fr 28px 24px 24px;">
           <div class="field-tag" title="${escapeHtml(m.fieldKey)}">${escapeHtml(m.fieldLabel || m.fieldKey)}</div>
           <div class="mapping-arrow">→</div>
-          <div class="field-tag" style="color:var(--accent);">${escapeHtml(m.column)}${defTag}${transTag}</div>
+          <div class="field-tag" style="color:var(--accent);">${escapeHtml(m.column)}${m.confidence != null ? confidenceBadge(m.confidence) : ''}${defTag}${transTag}</div>
           <button class="remove-btn" data-index="${i}" title="Remove">×</button>
           <button class="remove-btn" data-move-up="${i}" title="Move up" ${i === 0 ? 'disabled' : ''}>↑</button>
           <button class="remove-btn" data-move-down="${i}" title="Move down" ${i === state.pendingMappings.length - 1 ? 'disabled' : ''}>↓</button>
@@ -1040,6 +1060,20 @@ function setupFillTab() {
   $('recordSearch').addEventListener('input', () => {
     clearTimeout(filterRecordsDebounce);
     filterRecordsDebounce = setTimeout(filterRecords, 120);
+  });
+
+  $('searchColumnSelect').addEventListener('change', () => {
+    const col = $('searchColumnSelect').value;
+    $('recordSearch').placeholder = col ? `Search in ${col}…` : 'Search by name, ID…';
+    clearTimeout(filterRecordsDebounce);
+    filterRecords();
+  });
+
+  $('clearFillMarkersBtn').addEventListener('click', () => {
+    state.filledRecordIndices = [];
+    saveToStorage();
+    refreshRecords();
+    showToast('Fill markers cleared');
   });
 
   $('recordSelect').addEventListener('change', (e) => {
@@ -1220,8 +1254,12 @@ function triggerFill(fillAndNext, retryFailedOnly) {
     if (response && response.success && response.count > 0) {
       state.fillHistory.unshift({ recordIndex: state.selectedRecord, templateName, timestamp: Date.now() });
       if (state.fillHistory.length > FILL_HISTORY_MAX) state.fillHistory.pop();
+      if (!state.filledRecordIndices.includes(state.selectedRecord)) {
+        state.filledRecordIndices.push(state.selectedRecord);
+      }
       saveToStorage();
       refreshFillHistory();
+      refreshRecords();
     }
 
     // Display results
@@ -1336,7 +1374,8 @@ function filterRecords() {
   }
 
   const rows = state.csvData.rows;
-  const cols = state.csvData.columns;
+  const searchCol = $('searchColumnSelect')?.value || '';
+  const cols = searchCol ? [searchCol] : state.csvData.columns;
   const matches = [];
   for (let i = 0; i < rows.length; i++) {
     for (let c = 0; c < cols.length; c++) {
@@ -1381,6 +1420,7 @@ function refreshAll() {
   refreshFillTemplates();
   refreshSavedTemplates();
   refreshColumnDropdowns();
+  refreshSearchColumnDropdown();
   updatePreviewAndWarnings();
   updateFillButton();
   refreshFillHistory();
@@ -1470,12 +1510,16 @@ function refreshRecords() {
 
   const label = isFiltered ? 'matches' : 'records';
 
+  const filled = state.filledRecordIndices;
+  const optionText = (idx) => {
+    const prefix = filled.includes(idx) ? '\u2713 ' : '';
+    return prefix + escapeHtml(String(rows[idx][displayCol] || '').trim() || `Row ${idx + 1}`);
+  };
+
   if (total <= RECORD_PAGE_SIZE) {
     // No pagination needed
     sel.innerHTML = indices
-      .map((idx) =>
-        `<option value="${idx}">${escapeHtml(String(rows[idx][displayCol] || '').trim() || `Row ${idx + 1}`)}</option>`
-      )
+      .map((idx) => `<option value="${idx}">${optionText(idx)}</option>`)
       .join('');
     if (paginationEl) paginationEl.style.display = 'none';
   } else {
@@ -1485,9 +1529,7 @@ function refreshRecords() {
     const pageIndices = indices.slice(start, end);
 
     sel.innerHTML = pageIndices
-      .map((idx) =>
-        `<option value="${idx}">${escapeHtml(String(rows[idx][displayCol] || '').trim() || `Row ${idx + 1}`)}</option>`
-      )
+      .map((idx) => `<option value="${idx}">${optionText(idx)}</option>`)
       .join('');
 
     if (paginationEl) {
@@ -1514,6 +1556,11 @@ function refreshRecords() {
 
   if (progressEl) progressEl.textContent = total ? `(${total} ${label})` : '';
 
+  const clearMarkersBtn = $('clearFillMarkersBtn');
+  if (clearMarkersBtn) {
+    clearMarkersBtn.style.display = filled.length > 0 ? 'block' : 'none';
+  }
+
   // Restore selection
   if (state.selectedRecord !== null && state.selectedRecord >= 0 && state.selectedRecord < rows.length) {
     if (total > RECORD_PAGE_SIZE) {
@@ -1539,6 +1586,20 @@ function refreshColumnDropdowns() {
   }
   sel.innerHTML =
     '<option value="">— Select column —</option>' +
+    state.csvData.columns
+      .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+      .join('');
+}
+
+function refreshSearchColumnDropdown() {
+  const sel = $('searchColumnSelect');
+  if (!sel) return;
+  if (!state.csvData) {
+    sel.innerHTML = '<option value="">All columns</option>';
+    return;
+  }
+  sel.innerHTML =
+    '<option value="">All columns</option>' +
     state.csvData.columns
       .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
       .join('');
