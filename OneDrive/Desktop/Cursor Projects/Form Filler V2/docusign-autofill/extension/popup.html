@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DocuFill</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232636;
+      --border: #2e3248;
+      --accent: #4f7cff;
+      --accent-glow: rgba(79,124,255,0.2);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #e8eaf0;
+      --text-muted: #7b8299;
+      --text-dim: #4a4f6a;
+      --radius: 8px;
+    }
+
+    body {
+      width: 400px;
+      min-height: 520px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .logo {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: #fff;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+    .header-sub { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .tab {
+      flex: 1; padding: 9px 0;
+      text-align: center; font-size: 12px; font-weight: 500;
+      color: var(--text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .panel { display: none; padding: 16px; }
+    .panel.active { display: block; }
+
+    .section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 14px; border-radius: var(--radius);
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      border: none; transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+    .btn-primary:hover { filter: brightness(1.15); box-shadow: 0 0 14px var(--accent-glow); }
+    .btn-secondary {
+      background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border); width: 100%;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    input[type="text"], select, input[type="file"] {
+      width: 100%; padding: 8px 10px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text);
+      font-size: 12px; outline: none;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface2); }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-bottom: 12px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+    .upload-icon { font-size: 24px; margin-bottom: 6px; }
+    .upload-text { color: var(--text-muted); font-size: 12px; }
+    .upload-text strong { color: var(--accent); }
+
+    .csv-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+      background: var(--surface2); border-radius: var(--radius);
+      margin-bottom: 12px;
+    }
+    .csv-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-dim); flex-shrink: 0;
+    }
+    .csv-dot.loaded { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .csv-name { flex: 1; font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .csv-count { font-size: 11px; color: var(--text-dim); }
+
+    .record-selector { margin-bottom: 12px; }
+    .search-input-wrap { position: relative; }
+    .search-input-wrap input { padding-left: 28px; }
+    .search-icon {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      color: var(--text-dim); font-size: 12px; pointer-events: none;
+    }
+
+    .template-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 10px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 6px; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .template-item:hover { border-color: var(--accent); }
+    .template-item.selected { border-color: var(--accent); background: var(--accent-glow); }
+    .template-name { flex: 1; font-size: 12px; font-weight: 500; }
+    .template-meta { font-size: 10px; color: var(--text-dim); }
+    .template-actions { display: flex; gap: 4px; }
+
+    .mapping-row {
+      display: grid; grid-template-columns: 1fr 24px 1fr 28px;
+      align-items: center; gap: 6px;
+      margin-bottom: 6px;
+    }
+    .mapping-arrow { text-align: center; color: var(--text-dim); font-size: 12px; }
+    .field-tag {
+      padding: 6px 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 11px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--text-muted);
+    }
+    .remove-btn {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-dim); cursor: pointer; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+    .mapping-banner {
+      display: none;
+      background: linear-gradient(135deg, #4f7cff22, #7c4fff22);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius); padding: 10px 12px;
+      margin-bottom: 12px; text-align: center;
+    }
+    .mapping-banner.active { display: block; }
+    .mapping-banner-text { font-size: 12px; color: var(--accent); font-weight: 500; }
+    .mapping-banner-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .toast {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 8px 16px;
+      font-size: 12px; color: var(--text);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s; white-space: nowrap;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    .empty-state {
+      text-align: center; padding: 32px 16px;
+      color: var(--text-dim);
+    }
+    .empty-icon { font-size: 28px; margin-bottom: 8px; }
+    .empty-text { font-size: 12px; }
+
+    .fill-btn-wrap { margin-top: 4px; }
+    .fill-btn {
+      width: 100%; padding: 11px;
+      background: linear-gradient(135deg, var(--accent), #7c4fff);
+      border: none; border-radius: var(--radius);
+      color: #fff; font-size: 13px; font-weight: 600;
+      cursor: pointer; letter-spacing: 0.2px;
+      box-shadow: 0 0 20px var(--accent-glow);
+      transition: all 0.2s;
+    }
+    .fill-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .fill-btn:active { transform: translateY(0); }
+    .fill-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .divider { height: 1px; background: var(--border); margin: 12px 0; }
+    .row { display: flex; gap: 8px; }
+    .row .btn { flex: 1; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 12px; height: 12px; border: 2px solid transparent;
+      border-top-color: currentColor; border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .record-progress { font-weight: normal; color: var(--text-dim); margin-left: 6px; }
+    .record-pagination { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 11px; color: var(--text-muted); }
+    .record-pagination button { padding: 2px 8px; font-size: 11px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 12px; }
+    .setting-row span { flex: 1; }
+    .setting-row select { width: 140px; flex-shrink: 0; }
+    .setting-check { cursor: pointer; }
+    .setting-check input { margin-right: 8px; }
+    .onboarding-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .onboarding-content { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; max-width: 320px; }
+    body.theme-light .onboarding-content { background: #fff; border-color: #e2e8f0; }
+
+    body.theme-light { --bg: #f8fafc; --surface: #fff; --surface2: #f1f5f9; --border: #e2e8f0; --text: #0f172a; --text-muted: #475569; --text-dim: #64748b; --accent-glow: rgba(37,99,235,0.15); }
+    body.theme-light .btn-primary { background: #2563eb; }
+    body.theme-light .fill-btn { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">D</div>
+    <span class="header-title">DocuFill</span>
+    <span class="header-sub" id="pageStatus">Not on DocuSign</span>
+    <span class="header-version" id="headerVersion" style="font-size:10px; color:var(--text-dim); margin-left:4px;"></span>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <div class="tab active" data-tab="fill" role="tab" aria-selected="true" id="tab-fill-btn">Fill</div>
+    <div class="tab" data-tab="mapping" role="tab" aria-selected="false">Mapping</div>
+    <div class="tab" data-tab="data" role="tab" aria-selected="false">Data</div>
+    <div class="tab" data-tab="settings" role="tab" aria-selected="false" id="tab-settings-btn">Settings</div>
+    <div class="tab" data-tab="help" role="tab" aria-selected="false" id="tab-help-btn">Help</div>
+  </div>
+
+  <!-- FILL TAB -->
+  <div class="panel active" id="tab-fill">
+    <div class="csv-status">
+      <div class="csv-dot" id="csvDot"></div>
+      <span class="csv-name" id="csvName">No file loaded</span>
+      <span class="csv-count" id="csvCount"></span>
+    </div>
+
+    <div class="section-label">Template</div>
+    <select id="templateSelect" style="margin-bottom:12px;">
+      <option value="">— Select a template —</option>
+    </select>
+
+    <div class="section-label">Record <span id="recordProgress" class="record-progress"></span></div>
+    <div class="record-selector">
+      <div class="search-input-wrap" style="margin-bottom:6px;">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input type="text" id="recordSearch" placeholder="Search by name, ID…" aria-label="Search records" />
+      </div>
+      <div id="recordPagination" class="record-pagination" style="display:none;"></div>
+      <select id="recordSelect" size="5" style="height:100px; padding:4px;" aria-label="Select record to fill"></select>
+    </div>
+
+    <div id="previewBeforeFill" class="card" style="display:none; margin-bottom:8px;">
+      <div class="section-label">Preview (this record)</div>
+      <div id="previewList" style="font-size:11px; color:var(--text-muted); max-height:80px; overflow-y:auto;"></div>
+    </div>
+    <div id="emptyFieldsWarn" style="display:none; margin-bottom:8px; padding:8px; background:var(--warning); color:var(--bg); border-radius:var(--radius); font-size:11px;"></div>
+
+    <div class="divider"></div>
+    <div class="fill-btn-wrap">
+      <button class="fill-btn" id="fillBtn" disabled aria-label="Autofill document with selected record">⚡ Autofill Document</button>
+    </div>
+    <button class="btn btn-primary" id="fillAndNextBtn" style="margin-top:6px; width:100%;" disabled>⚡ Fill &amp; Next record</button>
+    <button class="btn btn-secondary" id="fillNextBtn" style="margin-top:6px; width:100%;">Next record →</button>
+    <div id="fillSummary" style="display:none; margin-top:8px; padding:8px; background:var(--surface2); border-radius:var(--radius); font-size:11px;"></div>
+    <div id="fillErrors" style="display:none; margin-top:8px; padding:8px; background:var(--surface2); border-radius:var(--radius); font-size:11px; color:var(--text-muted);"></div>
+    <button class="btn btn-secondary btn-sm" id="retryFailedBtn" style="display:none; margin-top:6px; width:100%;">Retry failed fields only</button>
+    <button class="btn btn-secondary" id="undoFillBtn" style="display:none; margin-top:6px; width:100%;">↩ Undo last fill</button>
+    <div id="staleTabHint" style="display:none; margin-top:8px; padding:8px; background:var(--warning); color:var(--bg); border-radius:var(--radius); font-size:11px;">Reload the DocuSign tab and try again.</div>
+    <div id="fillTabHint" style="margin-top:8px; text-align:center; font-size:11px; color:var(--text-dim)">Navigate to a DocuSign document tab first</div>
+    <div id="fillHistoryWrap" class="card" style="display:none; margin-top:12px;">
+      <div class="section-label">Recent fills</div>
+      <div id="fillHistoryList" style="font-size:11px; color:var(--text-muted); max-height:60px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- MAPPING TAB -->
+  <div class="panel" id="tab-mapping">
+    <div class="mapping-banner" id="mappingBanner">
+      <div class="mapping-banner-text">🎯 Mapping Mode Active</div>
+      <div class="mapping-banner-sub">Click any field in DocuSign to capture it</div>
+    </div>
+
+    <div class="section-label">Active Template</div>
+    <div style="display:flex; gap:8px; margin-bottom:12px;">
+      <input type="text" id="templateNameInput" placeholder="Template name…" style="flex:1;" />
+      <button class="btn btn-secondary btn-sm" id="newTemplateBtn">New</button>
+      <button class="btn btn-secondary btn-sm" id="loadTemplateBtn">Load</button>
+    </div>
+
+    <button class="btn btn-primary" id="scanFieldsBtn" style="margin-bottom:8px;">🔍 Scan page for fields</button>
+    <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px;">Finds all form fields and matches them to your CSV columns by name.</p>
+    <button class="btn btn-secondary" id="captureModeBtn" style="margin-bottom:12px;">
+      🎯 Start Capturing Fields
+    </button>
+
+    <div id="pendingCapture" style="display:none; margin-bottom:12px;">
+      <div class="section-label">Captured Field</div>
+      <div class="card" style="margin-bottom:8px;">
+        <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">Field detected:</div>
+        <div class="field-tag" id="capturedFieldName">—</div>
+      </div>
+      <div class="section-label">Map to CSV Column</div>
+      <select id="columnSelect" style="margin-bottom:6px;">
+        <option value="">— Select column —</option>
+      </select>
+      <div class="section-label" style="margin-top:6px;">Default if empty (optional)</div>
+      <input type="text" id="mappingDefaultInput" placeholder="e.g. N/A" style="margin-bottom:6px;" />
+      <div class="section-label">Transform (optional)</div>
+      <select id="mappingTransformSelect" style="margin-bottom:8px;">
+        <option value="">None</option>
+        <option value="uppercase">Uppercase</option>
+        <option value="lowercase">Lowercase</option>
+        <option value="trim">Trim</option>
+      </select>
+      <div class="row">
+        <button class="btn btn-primary btn-sm" id="confirmMappingBtn">✓ Add Mapping</button>
+        <button class="btn btn-secondary btn-sm" id="cancelCaptureBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">
+      Mappings <span id="mappingCount" style="color:var(--text-dim);">(0)</span>
+    </div>
+    <div id="mappingsList">
+      <div class="empty-state">
+        <div class="empty-icon">↔️</div>
+        <div class="empty-text">No mappings yet.<br>Capture fields to build your template.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <button class="btn btn-primary" id="saveTemplateBtn">💾 Save Template</button>
+  </div>
+
+  <!-- DATA TAB -->
+  <div class="panel" id="tab-data">
+    <div class="section-label">CSV / Excel Source File</div>
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text"><strong>Click to upload</strong> or drag & drop</div>
+      <div class="upload-text" style="margin-top:4px;">.csv or .xlsx files</div>
+    </div>
+    <button class="btn btn-secondary btn-sm" id="loadSampleCsvBtn" style="width:100%; margin-bottom:12px;">Load sample CSV</button>
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none;" />
+
+    <div id="sheetPicker" class="card" style="display:none; margin-bottom:12px;">
+      <div class="section-label">Excel has multiple sheets</div>
+      <select id="sheetSelect" style="margin-bottom:8px;"></select>
+      <div class="row">
+        <button class="btn btn-primary btn-sm" id="loadSheetBtn">Load sheet</button>
+        <button class="btn btn-secondary btn-sm" id="cancelSheetBtn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="fileInfo" style="display:none;">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-weight:600; font-size:12px;" id="fileInfoName">—</span>
+          <button class="btn btn-danger btn-sm" id="clearFileBtn">Remove</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted);">
+          <span id="fileInfoRows">—</span> rows · <span id="fileInfoCols">—</span> columns
+        </div>
+      </div>
+
+      <div class="section-label">Columns Detected</div>
+      <div id="columnsList" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:12px;"></div>
+
+      <div class="section-label">Preview (first 3 rows)</div>
+      <div id="dataPreview" style="overflow-x:auto; font-size:10px; color:var(--text-muted);"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+      <div class="section-label" style="margin:0;">Saved Templates</div>
+      <span style="display:flex; align-items:center; gap:6px;">
+        <span id="templateBadge" style="font-size:10px; color:var(--text-dim);">0 saved</span>
+        <button class="btn btn-secondary btn-sm" id="exportTemplatesBtn">Export</button>
+        <button class="btn btn-secondary btn-sm" id="importTemplatesBtn">Import</button>
+        <button class="btn btn-secondary btn-sm" id="importMappingsCsvBtn" title="Import mappings from CSV (fieldKey,fieldLabel,column)">Import mappings CSV</button>
+      </span>
+    </div>
+    <input type="file" id="importTemplatesInput" accept=".json,application/json" style="display:none;" />
+    <input type="file" id="importMappingsCsvInput" accept=".csv,text/csv" style="display:none;" />
+    <div id="savedTemplatesList">
+      <div class="empty-state" style="padding:16px;">
+        <div class="empty-text">No templates saved yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="panel" id="tab-settings" role="tabpanel" aria-labelledby="tab-settings-btn">
+    <div class="section-label">Appearance</div>
+    <div class="card" style="margin-bottom:12px;">
+      <label class="setting-row">
+        <span>Theme</span>
+        <select id="settingTheme" aria-label="Theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="system">System</option>
+        </select>
+      </label>
+    </div>
+    <div class="section-label">Data</div>
+    <div class="card" style="margin-bottom:12px;">
+      <label class="setting-row setting-check">
+        <input type="checkbox" id="settingTrimWhitespace" checked />
+        <span>Trim whitespace from CSV values before fill</span>
+      </label>
+      <label class="setting-row">
+        <span>Date format for date columns</span>
+        <select id="settingDateFormat" aria-label="Date format">
+          <option value="">As-is (no conversion)</option>
+          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+        </select>
+      </label>
+      <label class="setting-row">
+        <span>CSV encoding</span>
+        <select id="settingEncoding" aria-label="CSV encoding">
+          <option value="utf-8">UTF-8</option>
+          <option value="utf-8-bom">UTF-8 with BOM</option>
+        </select>
+      </label>
+    </div>
+    <div class="section-label">Templates</div>
+    <div class="card" style="margin-bottom:12px;">
+      <label class="setting-row setting-check">
+        <input type="checkbox" id="settingAutoLoadTemplate" />
+        <span>Auto-load template by URL pattern</span>
+      </label>
+      <div id="urlRulesWrap" style="display:none; margin-top:8px;">
+        <div class="section-label">URL → Template rules (one per line: pattern templateName)</div>
+        <textarea id="settingUrlRules" rows="4" placeholder="e.g. /envelope/  My Envelope Template" style="width:100%; padding:8px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:11px;"></textarea>
+      </div>
+    </div>
+    <div class="section-label">Warnings</div>
+    <div class="card">
+      <label class="setting-row setting-check">
+        <input type="checkbox" id="settingWarnEmpty" checked />
+        <span>Warn when mapped column is empty for selected record</span>
+      </label>
+      <label class="setting-row setting-check">
+        <input type="checkbox" id="settingShowPreview" checked />
+        <span>Show preview before fill</span>
+      </label>
+      <label class="setting-row setting-check">
+        <input type="checkbox" id="settingBatchFillMode" />
+        <span>Batch mode: Fill button acts as Fill &amp; Next</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- HELP TAB -->
+  <div class="panel" id="tab-help" role="tabpanel" aria-labelledby="tab-help-btn">
+    <div class="card" style="margin-bottom:12px;">
+      <div class="section-label">First time?</div>
+      <ol style="font-size:12px; color:var(--text-muted); margin-left:16px; line-height:1.7;">
+        <li><strong style="color:var(--text);">Data tab</strong> — Upload your CSV or Excel file.</li>
+        <li><strong style="color:var(--text);">Mapping tab</strong> — Open a DocuSign document, click “Start Capturing Fields”, then click each field and choose the matching column.</li>
+        <li><strong style="color:var(--text);">Fill tab</strong> — Select template and record, then click Autofill.</li>
+      </ol>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="section-label">Shortcuts</div>
+      <ul style="font-size:11px; color:var(--text-muted); margin-left:16px; line-height:1.8;">
+        <li><kbd>Ctrl+Shift+F</kbd> (Mac: <kbd>⌘+Shift+F</kbd>) — Open DocuFill</li>
+        <li>With record list focused: <kbd>↑</kbd> <kbd>↓</kbd> to change record, <kbd>Enter</kbd> to fill</li>
+      </ul>
+    </div>
+    <a href="https://form-fillerv2.vercel.app/#usage" target="_blank" rel="noopener" class="btn btn-secondary" style="width:100%; margin-bottom:8px;">📖 Full guide on website</a>
+    <p style="font-size:11px; color:var(--text-dim);">You can open DocuFill in the side panel from the extension icon (right-click → Open in side panel).</p>
+  </div>
+
+  <!-- ONBOARDING OVERLAY -->
+  <div id="onboardingOverlay" class="onboarding-overlay" style="display:none;" role="dialog" aria-label="First time guide">
+    <div class="onboarding-content">
+      <h3 style="margin-bottom:8px;">Welcome to DocuFill</h3>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">1. Upload CSV/Excel in <strong>Data</strong> → 2. Map fields in <strong>Mapping</strong> (on a DocuSign page) → 3. <strong>Fill</strong> with one click.</p>
+      <button class="btn btn-primary" id="onboardingDismiss">Got it</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+  <script src="db.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
